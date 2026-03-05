@@ -1,0 +1,149 @@
+{
+  "projectType": "frontend",
+  "projectName": "GitHub Desktop",
+  "projectDescription": "Community-driven fork of GitHub Desktop focused on advanced Git workflows with an Electron-based interface.",
+  "theme": "almond",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/repository-management",
+              "features/committing-changes",
+              "features/branches",
+              "features/pull-requests",
+              "features/merge-conflicts",
+              "features/history-and-diffs"
+            ]
+          },
+          {
+            "group": "Advanced Workflows",
+            "pages": [
+              "workflows/rebasing",
+              "workflows/cherry-picking",
+              "workflows/stashing",
+              "workflows/submodules"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/github-integration",
+              "integrations/editor-integration",
+              "integrations/shell-integration",
+              "integrations/cli-usage"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/preferences",
+              "configuration/git-config",
+              "configuration/proxies",
+              "configuration/authentication"
+            ]
+          },
+          {
+            "group": "Help & Support",
+            "pages": [
+              "support/troubleshooting",
+              "support/known-issues",
+              "support/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "contributing/setup",
+              "contributing/engineering-values",
+              "contributing/styleguide"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "contributing/building",
+              "contributing/testing",
+              "contributing/linting",
+              "contributing/tooling",
+              "contributing/troubleshooting-dev"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/electron-structure",
+              "architecture/ui-components",
+              "architecture/git-operations",
+              "architecture/state-management"
+            ]
+          },
+          {
+            "group": "Technical Guides",
+            "pages": [
+              "technical/dialogs",
+              "technical/oauth",
+              "technical/packaging",
+              "technical/feature-flags",
+              "technical/error-reporting"
+            ]
+          },
+          {
+            "group": "Project",
+            "pages": [
+              "project/roadmap",
+              "project/release-planning",
+              "project/pull-request-process",
+              "project/issue-triage"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Visual Git operations (commit, push, pull, merge)",
+    "Branch management and visualization",
+    "Pull request integration with GitHub",
+    "Interactive diff viewer and conflict resolution",
+    "Repository cloning and management",
+    "Rebase, cherry-pick, and stash support",
+    "Editor and shell integration",
+    "CLI interface for automation",
+    "GitHub Actions CI/CD integration",
+    "Multi-account support"
+  ],
+  "publicApiSurface": [
+    "Repository operations: clone, add, remove",
+    "Commit operations: create, amend, undo",
+    "Branch operations: create, delete, checkout, merge, rebase",
+    "Remote operations: fetch, push, pull",
+    "Stash operations: save, apply, pop",
+    "Diff operations: view changes, stage/unstage files",
+    "Pull request: create, view, checkout",
+    "GitHub integration: authentication, API calls",
+    "CLI commands: open, clone",
+    "Editor integration: open in external editor",
+    "Shell integration: open repository in terminal"
+  ]
+}
