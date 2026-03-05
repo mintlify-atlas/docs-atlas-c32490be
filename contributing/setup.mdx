@@ -1,0 +1,383 @@
+---
+title: Development Environment Setup
+description: Set up your local development environment to contribute to GitHub Desktop
+---
+
+## Prerequisites
+
+<Tabs>
+  <Tab title="macOS">
+    You will need to install these tools on your machine:
+    - Node.js
+    - Yarn
+    - Python 3
+    - Xcode and Xcode Command Line Tools (Xcode → Preferences → Downloads)
+  </Tab>
+  <Tab title="Windows">
+    You will need to install these tools on your machine:
+    - Node.js
+    - Yarn
+    - Python 3
+    - Visual C++ Build Tools
+  </Tab>
+  <Tab title="Linux">
+    You will need to install these tools on your machine:
+    - Node.js
+    - Yarn
+    - Python 3
+    - Electron dependencies
+  </Tab>
+</Tabs>
+
+## Installing Dependencies
+
+<Tabs>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Install Node.js">
+        Check if you have the right version of Node.js installed:
+        
+        ```bash
+        node -v
+        ```
+        
+        If you see an error, download Node from the [Node.js website](https://nodejs.org/) and install the package.
+        
+        Verify your installed version matches [our .node-version file](https://github.com/desktop/desktop/blob/development/.node-version). Usually the same major version is enough.
+        
+        <Accordion title="Using different Node.js versions across projects">
+          We support these Node version managers: `nvm` and `asdf-nodejs`.
+          
+          **Using nvm:**
+          
+          1. Install `nvm` using the instructions [here](https://github.com/creationix/nvm#install-script)
+          2. Within the Desktop source directory, install the required version:
+             ```bash
+             nvm install
+             ```
+          3. Ensure you are running the right version:
+             ```bash
+             nvm use
+             ```
+          4. Verify by running `node -v` again
+          
+          **Using asdf-nodejs:**
+          
+          Check out the instructions [here](https://github.com/asdf-vm/asdf) and [here](https://github.com/asdf-vm/asdf-nodejs) for installation details.
+        </Accordion>
+      </Step>
+      
+      <Step title="Install Yarn">
+        Follow [this guide](https://yarnpkg.com/en/docs/install#mac-stable) to install a system-level `yarn`.
+        
+        <Note>
+          GitHub Desktop uses a local version of `yarn`, but it needs a version on your `PATH` to bootstrap itself. Yarn uses lock files to pin dependencies and prevent version mismatches between machines.
+        </Note>
+      </Step>
+      
+      <Step title="Verify Python 3">
+        macOS comes with Python pre-installed. Verify you have the right version:
+        
+        ```bash
+        python3 --version
+        ```
+        
+        You should see `Python 3.9.x` or similar.
+        
+        <Accordion title="Using different Python versions across projects">
+          We recommend [pyenv](https://github.com/pyenv/pyenv) for managing Python versions.
+          
+          1. Install pyenv according to [the instructions](https://github.com/pyenv/pyenv-installer#github-way-recommended)
+          2. Within the Desktop source directory, install the required version:
+             ```bash
+             pyenv install
+             ```
+          3. Verify by running `python3 --version` again
+        </Accordion>
+      </Step>
+      
+      <Step title="Install Xcode Command Line Tools">
+        Run this command to install the Xcode command line tools:
+        
+        ```bash
+        xcode-select --install
+        ```
+        
+        If you already have them installed, it will notify you.
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Install Node.js">
+        Check if you have the right version of Node.js installed:
+        
+        ```bash
+        node -v
+        ```
+        
+        If you see an error, download Node from the [Node.js website](https://nodejs.org/) and install the package.
+        
+        <Warning>
+          Make sure you allow the Node.js installer to add `node` to the `PATH`.
+        </Warning>
+        
+        Verify your installed version matches [our .node-version file](https://github.com/desktop/desktop/blob/development/.node-version).
+        
+        <Accordion title="Using different Node.js versions across projects">
+          We support `nvm` on Windows.
+          
+          1. Install `nvm` using the instructions [here](https://github.com/coreybutler/nvm-windows)
+          2. Within the Desktop source directory:
+             ```bash
+             nvm install
+             ```
+          3. Ensure you are running the right version:
+             ```bash
+             nvm use
+             ```
+          4. Verify by running `node -v` again
+        </Accordion>
+      </Step>
+      
+      <Step title="Install Yarn">
+        Follow [this guide](https://yarnpkg.com/en/docs/install#windows-stable) to install a system-level `yarn`.
+        
+        <Note>
+          GitHub Desktop uses a local version of `yarn`, but it needs a version on your `PATH` to bootstrap itself.
+        </Note>
+      </Step>
+      
+      <Step title="Install Python 3">
+        Check your Python version:
+        
+        ```bash
+        python --version
+        ```
+        
+        You should see `Python 3.9.x`. If not, install Python 3.9 from the [Python website](https://www.python.org/downloads/windows/).
+        
+        <Warning>
+          **Important installation notes:**
+          - Let Python install into the default suggested path (`c:\Python39`), otherwise you'll have to configure `node-gyp` manually
+          - If you need a different path, set the `PYTHON` environment variable:
+            ```bash
+            npm config set python "c:\path\to\python3\python.exe"
+            ```
+          - Ensure the **Add python.exe to Path** option is selected
+        </Warning>
+      </Step>
+      
+      <Step title="Install Visual C++ Build Tools">
+        To build native Node modules, you need Visual C++. Choose one option:
+        
+        <Accordion title="Visual Studio 2019">
+          If you have VS2019 installed:
+          
+          1. Run the **Visual Studio Installer** (Tools > Get Tools and Features...)
+          2. Check that you have the **Desktop development with C++** workload included
+          3. Update NPM configuration:
+             ```bash
+             npm config set msvs_version 2019
+             npm config set msbuild_path "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\[VERSION]\\MSBuild\\Current\\Bin\\MSBuild.exe"
+             ```
+             
+             <Note>VERSION will be Community, Professional, or Enterprise depending on your install.</Note>
+        </Accordion>
+        
+        <Accordion title="Visual Studio 2017">
+          If you have VS2017 installed:
+          
+          1. Run the **Visual Studio Installer** (Tools > Get Tools and Features...)
+          2. Check that you have the **Desktop development with C++** workload included
+          3. Update NPM configuration:
+             ```bash
+             npm config set msvs_version 2017
+             ```
+        </Accordion>
+        
+        <Accordion title="Visual C++ Build Tools (Standalone)">
+          If you don't have Visual Studio:
+          
+          1. Install the standalone [Visual C++ Build Tools](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=BuildTools)
+          2. Update NPM configuration:
+             ```bash
+             npm config set msvs_version 2019
+             ```
+        </Accordion>
+      </Step>
+    </Steps>
+    
+    <Note>
+      **Troubleshooting:** If your local copy gets "stuck", try deleting the folder `C:\Users\[Your_User]\AppData\Roaming\GitHub Desktop-dev`.
+    </Note>
+  </Tab>
+  
+  <Tab title="Linux">
+    <Steps>
+      <Step title="Install Node.js">
+        Find your distribution on [this list](https://nodejs.org/en/download/package-manager/) and follow the instructions to install the required version.
+        
+        <Note>
+          Ensure that you also choose the option for building native Node modules, as those are used in some dependencies.
+        </Note>
+      </Step>
+      
+      <Step title="Install Yarn">
+        Follow [this guide](https://yarnpkg.com/en/docs/install) to install a system-level `yarn` for your distribution.
+        
+        <Note>
+          GitHub Desktop uses a local version of `yarn`, but it needs a version on your `PATH` to bootstrap itself.
+        </Note>
+      </Step>
+      
+      <Step title="Install Python 3">
+        Refer to your distribution's package manager to obtain the latest version of the Python 3 series.
+      </Step>
+      
+      <Step title="Install Electron dependencies">
+        Install these additional dependencies required for building and running GitHub Desktop:
+        
+        - `libsecret-1.so.0` for reading and writing credentials using [`keytar`](https://github.com/atom/node-keytar)
+        - `libXss.so.1` - the library for the X11 screen saver extension
+        - `libgconf-2-4.so.4` - library for accessing GNOME configuration database
+        
+        <CodeGroup>
+          ```bash Fedora 26+
+          sudo dnf install -y libsecret-devel libXScrnSaver
+          ```
+          
+          ```bash Ubuntu 14.04+
+          sudo apt install libsecret-1-dev libgconf-2-4
+          ```
+        </CodeGroup>
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Verify Installation
+
+Verify you have these commands available in your shell and that the found versions look similar to the output below:
+
+```bash
+node -v
+# v20.17.0
+
+yarn -v
+# 1.21.1
+
+python --version
+# Python 3.9.x
+```
+
+## Building Desktop
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    Create a fork of `desktop/desktop` and clone it to your local machine. Navigate into the repository directory.
+  </Step>
+  
+  <Step title="Install dependencies">
+    Run `yarn` to get all required dependencies:
+    
+    ```bash
+    yarn
+    ```
+  </Step>
+  
+  <Step title="Create a development build">
+    Build the application for development:
+    
+    ```bash
+    yarn build:dev
+    ```
+  </Step>
+  
+  <Step title="Launch the application">
+    Start the application:
+    
+    ```bash
+    yarn start
+    ```
+    
+    Changes will be compiled in the background. Reload the app to see changes using <kbd>Ctrl/Command+Alt+R</kbd>.
+  </Step>
+</Steps>
+
+<Note>
+  **Optional Tip:** On macOS and Linux, you can use `screen` to avoid filling your terminal with logging output:
+  
+  ```bash
+  screen -S "desktop" yarn start  # -S sets the name of the session
+  # Your screen clears and shows logs. Press Ctrl+A then D to exit.
+  screen -R "desktop"  # to reopen the session
+  ```
+</Note>
+
+<Warning>
+  If you've made changes in the `main-process` folder, you need to run `yarn build:dev` to rebuild the package, and then `yarn start` for these changes to be reflected in the running app.
+</Warning>
+
+## Running Tests
+
+<CodeGroup>
+  ```bash Run all unit tests
+  yarn test
+  ```
+  
+  ```bash Run script tests
+  yarn test:script
+  ```
+  
+  ```bash Run ESLint tests
+  yarn test:eslint
+  ```
+  
+  ```bash Run specific test file
+  yarn test:unit <file>
+  ```
+  
+  ```bash Run tests in directory
+  yarn test:unit <directory>
+  ```
+  
+  ```bash Run tests matching pattern
+  yarn test:unit --test-name-pattern <pattern>
+  ```
+</CodeGroup>
+
+For more information on test arguments, see [Node CLI options](https://nodejs.org/api/test.html).
+
+## Debugging
+
+<Steps>
+  <Step title="Launch the app">
+    Run `yarn start` to launch the app.
+  </Step>
+  
+  <Step title="Open Developer Tools">
+    Under the **View** menu, select **Toggle Developer Tools**.
+    
+    Electron ships with Chrome Dev Tools to assist with debugging, profiling, and other measurement tools.
+  </Step>
+</Steps>
+
+<Note>
+  When running the app in development mode, [React Dev Tools](https://chrome.google.com/webstore/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi?hl=en) should automatically install itself on first start.
+</Note>
+
+## Additional Resources
+
+- [Working with packages](./working-with-packages.md)
+- [GitHub Enterprise authentication from dev build](./github-enterprise-auth-from-dev-build.md)
+- [Troubleshooting guide](./troubleshooting.md)
+- [Tooling configuration](./tooling.md) - Configure your favorite editor to work with the GitHub Desktop repository
+
+## Next Steps
+
+Once your environment is set up, check out:
+
+- [Help Wanted](https://github.com/desktop/desktop/blob/development/.github/CONTRIBUTING.md#help-wanted) - Tasks marked as ideal for external contributors
+- [Notes for Contributors](../process/notes-for-contributors.md) - Guidance for new contributors getting started

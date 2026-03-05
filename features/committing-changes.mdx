@@ -1,0 +1,448 @@
+---
+title: "Committing Changes"
+description: "Learn how to stage files, write commit messages, and create commits in GitHub Desktop"
+---
+
+## Overview
+
+Committing changes is at the heart of Git workflows. GitHub Desktop provides an intuitive interface for reviewing changes, staging files, and creating meaningful commits.
+
+<CardGroup cols={2}>
+  <Card title="Visual Diff" icon="code-compare">
+    See exactly what changed with syntax-highlighted diffs
+  </Card>
+  <Card title="Selective Staging" icon="list-check">
+    Stage individual files or specific line changes
+  </Card>
+  <Card title="Commit Messages" icon="message">
+    Write descriptive commit messages with title and description
+  </Card>
+  <Card title="Git Hooks" icon="hook">
+    Support for pre-commit, commit-msg, and post-commit hooks
+  </Card>
+</CardGroup>
+
+## Understanding the Changes View
+
+### Changes List
+
+The left sidebar shows all modified files in your working directory:
+
+- **Checkboxes**: Select which files to include in the commit
+- **File Icons**: Visual indicators for file status
+  - Green `+`: New file (untracked)
+  - Yellow `M`: Modified file
+  - Red `-`: Deleted file
+  - Blue `R`: Renamed file
+  - Purple `C`: Copied file
+  - Gray `?`: Untracked file
+
+### Diff Viewer
+
+The main panel displays the diff for the selected file:
+
+- **Line-by-line changes**: See exactly what was added, removed, or modified
+- **Syntax highlighting**: Code appears with proper syntax coloring
+- **Split/unified view**: Toggle between side-by-side and unified diff views
+- **Expand context**: Click to show more surrounding lines
+
+## Creating a Commit
+
+<Steps>
+  <Step title="Review Changes">
+    Check the Changes list to see all modified files in your repository
+  </Step>
+  <Step title="Stage Files">
+    Select which files to include:
+    - Check individual files to stage them
+    - Click **Select All** to stage all changes
+    - Uncheck files you want to exclude
+  </Step>
+  <Step title="Write Commit Message">
+    In the commit message box at the bottom:
+    - **Summary**: Brief description (required, ~50 characters)
+    - **Description**: Detailed explanation (optional, supports markdown)
+  </Step>
+  <Step title="Commit to Branch">
+    Click **Commit to [branch-name]** to create the commit
+  </Step>
+</Steps>
+
+<Info>
+GitHub Desktop clears the staging area before each commit, ensuring your commits reflect the exact state shown in the diff viewer.
+</Info>
+
+## Commit Implementation
+
+GitHub Desktop's commit implementation includes several advanced features:
+
+```typescript
+// From app/src/lib/git/commit.ts
+export async function createCommit(
+  repository: Repository,
+  message: string,
+  files: ReadonlyArray<WorkingDirectoryFileChange>,
+  options?: {
+    amend?: boolean
+    noVerify?: boolean
+  }
+): Promise<string> {
+  // Clear the staging area
+  await unstageAll(repository)
+  
+  // Stage selected files
+  await stageFiles(repository, files)
+  
+  const args = ['-F', '-']  // Read message from stdin
+  
+  if (options?.amend) {
+    args.push('--amend')
+  }
+  
+  if (options?.noVerify) {
+    args.push('--no-verify')
+  }
+  
+  const result = await git(
+    ['commit', ...args],
+    repository.path,
+    'createCommit',
+    {
+      stdin: message,
+      interceptHooks: [
+        'pre-commit',
+        'prepare-commit-msg',
+        'commit-msg',
+        'post-commit',
+        'pre-auto-gc',
+      ]
+    }
+  )
+  
+  return parseCommitSHA(result)
+}
+```
+
+## Partial Commits (Staging Specific Lines)
+
+Stage specific line changes within a file:
+
+<Steps>
+  <Step title="Select File">
+    Click on a modified file in the Changes list
+  </Step>
+  <Step title="Choose Lines">
+    In the diff viewer, click the line numbers or drag to select lines
+  </Step>
+  <Step title="Stage Selection">
+    Right-click the selection and choose **Stage Selected Lines**
+  </Step>
+  <Step title="Commit">
+    The staged lines will be included in your next commit
+  </Step>
+</Steps>
+
+<Tip>
+Use partial commits to create more focused, logical commits even when you've made multiple unrelated changes to a single file.
+</Tip>
+
+## Writing Good Commit Messages
+
+### Message Structure
+
+A well-formatted commit message consists of:
+
+1. **Summary Line** (required):
+   - Brief description of changes
+   - ~50 characters (hard limit: 72)
+   - Imperative mood: "Add feature" not "Added feature"
+   - No period at the end
+
+2. **Description** (optional):
+   - Detailed explanation of what and why
+   - Supports markdown formatting
+   - Wrap at 72 characters per line
+   - Include context, motivation, and implementation notes
+
+### Examples
+
+<CodeGroup>
+```text Good Commit Message
+Add user authentication with OAuth 2.0
+
+Implement OAuth 2.0 authentication flow using GitHub as the
+provider. This allows users to sign in without creating a
+separate account.
+
+Changes:
+- Add OAuth callback handler
+- Implement token refresh logic
+- Store encrypted tokens in keychain
+
+Fixes #123
+```
+
+```text Basic Commit
+Fix typo in README
+```
+
+```text Bad Commit Message (Avoid)
+fixed stuff
+
+(Too vague, doesn't explain what was fixed)
+```
+</CodeGroup>
+
+### Commit Message Tips
+
+<CardGroup cols={2}>
+  <Card title="Be Specific" icon="bullseye">
+    "Fix login bug" → "Fix session timeout in OAuth flow"
+  </Card>
+  <Card title="Explain Why" icon="question">
+    Include the reason for the change, not just what changed
+  </Card>
+  <Card title="Reference Issues" icon="hashtag">
+    Link to issues with "Fixes #123" or "Relates to #456"
+  </Card>
+  <Card title="Use Imperative" icon="exclamation">
+    "Add feature" not "Added feature" or "Adds feature"
+  </Card>
+</CardGroup>
+
+## Amending Commits
+
+Modify your most recent commit:
+
+<Steps>
+  <Step title="Make Changes">
+    Edit files you want to include in the amended commit
+  </Step>
+  <Step title="Stage Files">
+    Select the files to add to the commit
+  </Step>
+  <Step title="Amend Commit">
+    Check **Amend last commit** at the bottom of the commit message area
+  </Step>
+  <Step title="Update Message (Optional)">
+    Modify the commit message if needed
+  </Step>
+  <Step title="Commit">
+    Click **Amend last commit** to update the commit
+  </Step>
+</Steps>
+
+<Warning>
+Never amend commits that have been pushed to a shared branch. Amending rewrites Git history and can cause issues for collaborators.
+</Warning>
+
+## Git Hooks Support
+
+GitHub Desktop fully supports Git hooks that run during the commit process:
+
+### Supported Hooks
+
+<Accordion title="pre-commit">
+  Runs before creating the commit. Common uses:
+  - Linting code
+  - Running tests
+  - Checking code formatting
+  
+  If the hook fails, the commit is aborted.
+</Accordion>
+
+<Accordion title="prepare-commit-msg">
+  Runs after the default message is created but before the editor is shown. Used to:
+  - Auto-generate commit messages
+  - Add ticket numbers
+  - Include template text
+</Accordion>
+
+<Accordion title="commit-msg">
+  Validates the commit message. Used to:
+  - Enforce commit message format
+  - Require issue references
+  - Check message length
+  
+  If the hook fails, the commit is aborted.
+</Accordion>
+
+<Accordion title="post-commit">
+  Runs after the commit is created. Used for:
+  - Notifications
+  - Triggering CI/CD
+  - Logging
+  
+  Cannot affect the commit outcome.
+</Accordion>
+
+### Hook Output
+
+When a hook runs, GitHub Desktop:
+- Shows progress indicator
+- Displays hook output in real-time
+- Allows aborting long-running hooks
+- Shows error messages if hooks fail
+
+## Co-authoring Commits
+
+Add co-authors to commits for pair programming:
+
+<Steps>
+  <Step title="Write Commit Message">
+    Enter your commit summary and description as usual
+  </Step>
+  <Step title="Add Co-authors">
+    Click the **Add Co-authors** button or icon
+  </Step>
+  <Step title="Select Co-authors">
+    Choose from recent collaborators or enter manually:
+    ```
+    Co-authored-by: Name <email@example.com>
+    ```
+  </Step>
+  <Step title="Commit">
+    Create the commit with co-author attribution
+  </Step>
+</Steps>
+
+Co-authored commits appear on both authors' GitHub profiles.
+
+## Merge Commits
+
+When completing a merge with conflicts, GitHub Desktop creates a merge commit:
+
+```typescript
+// From app/src/lib/git/commit.ts
+export async function createMergeCommit(
+  repository: Repository,
+  files: ReadonlyArray<WorkingDirectoryFileChange>,
+  manualResolutions: ReadonlyMap<string, ManualConflictResolution> = new Map()
+): Promise<string> {
+  // Apply manual conflict resolutions
+  for (const [path, resolution] of manualResolutions) {
+    await stageManualConflictResolution(repository, file, resolution)
+  }
+  
+  await stageFiles(repository, otherFiles)
+  
+  const result = await git(
+    [
+      'commit',
+      '--no-edit',        // Use existing merge message
+      '--cleanup=strip',  // Remove comment lines
+    ],
+    repository.path,
+    'createMergeCommit'
+  )
+  
+  return parseCommitSHA(result)
+}
+```
+
+<Info>
+Merge commits automatically use the message generated by Git, which includes information about the merged branches.
+</Info>
+
+## Discarding Changes
+
+Revert uncommitted changes:
+
+### Discard All Changes
+
+<Steps>
+  <Step title="Right-Click Files">
+    Right-click in the Changes list
+  </Step>
+  <Step title="Discard All Changes">
+    Select **Discard all changes**
+  </Step>
+  <Step title="Confirm">
+    Confirm the action in the dialog
+  </Step>
+</Steps>
+
+### Discard Specific Files
+
+- Right-click a file > **Discard changes**
+- Or select multiple files and right-click > **Discard changes**
+
+<Warning>
+Discarding changes is permanent and cannot be undone. The changes are not saved to stash.
+</Warning>
+
+## Viewing Commit History
+
+Switch to the **History** tab to see previous commits:
+
+- Chronological list of commits
+- Commit message, author, and timestamp
+- Changed files for each commit
+- Visual representation of branch structure
+
+## Commit Warnings
+
+GitHub Desktop displays warnings for:
+
+- **Large commits**: More than 100 files changed
+- **Large files**: Files over 100MB
+- **Protected files**: System files or sensitive data
+- **Unmerged files**: Files with unresolved conflicts
+
+## Best Practices
+
+<Tip>
+**Commit early and often**: Small, focused commits are easier to review, understand, and revert if needed.
+</Tip>
+
+1. **One Logical Change per Commit**: Each commit should represent a single, complete change
+2. **Test Before Committing**: Ensure your code works before creating a commit
+3. **Review Your Diff**: Always check what you're committing in the diff viewer
+4. **Write Meaningful Messages**: Future you (and your teammates) will thank you
+5. **Use Descriptive Summaries**: Make it easy to understand commits at a glance
+6. **Commit Related Changes Together**: Don't mix unrelated changes in a single commit
+
+## Keyboard Shortcuts
+
+| Action | Windows/Linux | macOS |
+|--------|--------------|-------|
+| Commit | `Ctrl+Enter` | `Cmd+Enter` |
+| Select all files | `Ctrl+A` | `Cmd+A` |
+| Deselect all | `Ctrl+Shift+A` | `Cmd+Shift+A` |
+| Show in diff | `Enter` | `Enter` |
+| Toggle file selection | `Space` | `Space` |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Commit Button Disabled">
+    The commit button is disabled when:
+    - No files are selected for staging
+    - No commit message is entered
+    - A hook is currently running
+    
+    Ensure you've selected files and written a commit message.
+  </Accordion>
+  
+  <Accordion title="Hook Failures">
+    If a pre-commit or commit-msg hook fails:
+    - Read the error message in the hook output dialog
+    - Fix the issues identified by the hook
+    - Try committing again
+    - Use `--no-verify` flag (Repository menu) to skip hooks if necessary
+  </Accordion>
+  
+  <Accordion title="Cannot Amend Commit">
+    You cannot amend if:
+    - There are no commits in the repository
+    - The commit has been pushed to a protected branch
+    - You're in a rebase, merge, or cherry-pick state
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+- [Repository Management](/features/repository-management)
+- [Branches](/features/branches)
+- [History and Diffs](/features/history-and-diffs)
+- [Merge Conflicts](/features/merge-conflicts)

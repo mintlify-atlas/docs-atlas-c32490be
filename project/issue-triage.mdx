@@ -1,0 +1,246 @@
+---
+title: Issue Triage
+description: Learn how GitHub Desktop prioritizes and processes issues to maximize impact for users
+---
+
+## What is Triage?
+
+> Triage is the process of determining the priority of patients' treatments based on the severity of their condition. This rations patient treatment efficiently when resources are insufficient for all to be treated immediately.
+
+This medical definition applies to software development too. Triage is the process of sifting through all possible work to select what the team will actually work on.
+
+<Info>
+To maximize impact, top priority goes to items that are well-described, clearly presented, and have obvious benefit.
+</Info>
+
+## Goals
+
+The triage process aims to:
+
+- **Communicate clearly** what the maintainers will work on
+- **Communicate clearly** what pull requests will and won't be reviewed for acceptance
+- **Define the bar** for issues to be considered triaged (issues below the bar are closed)
+- **Reduce back-and-forth** needed to move an issue from first-opened to triaged or closed
+- **Accept valuable input** from the community that helps deliver meaningful results
+
+## The Issues List is Our Backlog
+
+The issues list guides the maintainers' work. For work to be focused and efficient, the issues list must be clean and well-organized.
+
+<Steps>
+  <Step title="Untriaged Issues">
+    Tasks being evaluated to determine if they meet the triage bar.
+  </Step>
+  
+  <Step title="Open Triaged Issues">
+    Tasks that maintainers have agreed to work on.
+  </Step>
+  
+  <Step title="Closed Issues">
+    Tasks that didn't meet the triage bar or that maintainers will not be taking on.
+  </Step>
+</Steps>
+
+<Note>
+Accepting community input is valuable when it doesn't distract from making things better. The triage process helps maintain this balance.
+</Note>
+
+## The Triage Bar
+
+To be considered triaged, an issue **must** contain in the body of the issue:
+
+<Accordion title="Required Information">
+  - **Build number** associated with the issue
+  - **Operating system** and OS version number where the problem was reproduced
+  - **Specific steps** to reproduce the problem or desired behavior
+  - **Reproduction rate** if the steps don't reproduce 100% of the time (estimate how often it happens)
+  - **One issue only** - each issue should describe a single problem
+  - **Additional information** required to reproduce (sample Git repository, specific OS configuration, etc.)
+</Accordion>
+
+### The Body of the Issue
+
+<Info>
+The issue body is the description of the task. A maintainer should only need to read the body to understand what needs to happen.
+</Info>
+
+Maintainers should not have to read through pages of comments to understand the task. The issue body should be updated as understanding evolves.
+
+## Triage Process
+
+<Steps>
+  <Step title="Issue Opened">
+    User files a new issue.
+  </Step>
+  
+  <Step title="Template Check">
+    Maintainer checks if the template was adequately filled out. If not, close with a request to fill out the template.
+  </Step>
+  
+  <Step title="Label as Bug">
+    Label the issue as `bug` if it's a regression or behavior that needs to be fixed.
+  </Step>
+  
+  <Step title="Label as Support">
+    Label with `support` if the issue is specific to one person's configuration and not broadly relevant to other users. @-mention @desktop/support.
+  </Step>
+  
+  <Step title="Check for Duplicates">
+    If already fixed, add a comment linking to the original issue and close.
+  </Step>
+  
+  <Step title="Clarify Details">
+    If anything is unclear but template is filled out, post questions and label with `more-information-needed`.
+  </Step>
+  
+  <Step title="Reproduce">
+    Maintainer attempts to reproduce the problem.
+    - If not reproducible, label with `needs-reproduction` and ask for clarification on repro steps.
+  </Step>
+  
+  <Step title="Label as Enhancement">
+    Label as `enhancement` if the issue describes new behavior or functionality the app should have.
+  </Step>
+</Steps>
+
+## Triage Labels
+
+### More Information Needed
+
+If a reviewer cannot understand or reproduce the issue, they add the `more-information-needed` label.
+
+<Accordion title="More Information Needed Process">
+  **Weekly sweep:**
+  - First responder manually checks `more-information-needed` issues at least once a week
+  
+  **Automatic closure:**
+  - Issues stale for more than 14 days after last reviewer comment are automatically closed by bot
+  
+  **Incomplete templates:**
+  - If template not filled out and no response within 7 days, close with:
+    > "I'm closing the issue due to inactivity but I'm happy to re-open if you can provide more details."
+</Accordion>
+
+### Support
+
+Issues specific to one user's setup where the solution won't be relevant to other Desktop users.
+
+<Info>
+Reviewers add the `support` label and @-mention @desktop/support so they can work with the user to diagnose the problem.
+</Info>
+
+### Needs Reproduction
+
+When a problem is consistently not reproducible, more information is needed.
+
+<Note>
+If reproduction issues aren't due to unclear steps, also add `more-information-needed` and follow that process.
+</Note>
+
+### Bugs
+
+Problems with the current app identified by users. Bug issues should:
+
+- Specify the build associated with the issue
+- Have instructions sufficient to reproduce the issue
+- Have details about impact and severity
+
+Use `more-information-needed` and `needs-reproduction` labels for incomplete bug reports.
+
+**Prioritization:**
+
+Once a bug can be reproduced by a maintainer, the team prioritizes it:
+
+- **High priority**: Severe bugs or bugs affecting many users
+- **Lower priority**: Minor or low-impact bugs
+
+### Enhancements
+
+Changes or improvements to existing features are generally welcome, but require review before implementation.
+
+<Accordion title="Enhancement Review Process">
+  Contributors are encouraged to open issues to discuss enhancements so the community can participate and the core team remains transparent.
+  
+  **Quality considerations:**
+  
+  The core team may need to clarify details before work proceeds:
+  
+  - **User interface**: Appropriate use of styles and layout
+  - **User experience**: Ensure consistency and discoverability
+  - **Quality**: Ensure changes don't adversely affect other features
+  
+  **Example enhancement:**
+  > "GitHub Desktop should support worktrees as a first-class feature."
+</Accordion>
+
+### Out-of-Scope
+
+Some ideas or suggestions don't align with how the team sees the application evolving.
+
+<Note>
+These issues are closed with an explanation of why they don't fit the project's direction.
+</Note>
+
+**Example out-of-scope request:**
+> "GitHub Desktop should support working with Mercurial repositories."
+
+## Label Reference
+
+### Issue Triage Labels
+
+| Label | Description |
+|-------|-------------|
+| `bug` | Confirmed bugs or reports very likely to be bugs |
+| `enhancement` | Issues that propose to improve the app and solve a problem for users |
+| `investigation-needed` | Likely bugs that haven't been reliably reproduced |
+| `more-information-needed` | Submitter needs to provide more information |
+| `priority-1` | Major bug affecting large population and inhibiting their work |
+| `priority-2` | Bug affecting more than a few users but doesn't prevent core functions |
+| `priority-3` | Bugs affecting small number of users and/or cosmetic in nature |
+| `support` | Issues specific to individual user configuration requiring diagnosis |
+
+### External Contribution Labels
+
+| Label | Description |
+|-------|-------------|
+| `good first issue` | Ideal for brand new contributors to start with |
+| `help wanted` | Ideal for external contributors |
+
+### Planning Labels
+
+| Label | Description |
+|-------|-------------|
+| `meta` | Issues to coordinate tasks or discuss features before capturing work |
+| `user-research` | May benefit from user interviews, validations, and/or usability testing |
+| `needs-design-input` | Requires design input from core team before work can start |
+
+### Specialized Area Labels
+
+| Label | Description |
+|-------|-------------|
+| `codemirror` | Related to CodeMirror usage, may require upstream fixes |
+| `electron` | Related to Electron usage, may need Electron updates or upstream fixes |
+| `integrations` | Related to editor and shell integrations that ship in Desktop |
+| `performance` | Relating to things affecting performance |
+| `themes` | Related to light or dark themes that ship in Desktop |
+| `website` | Relates to external websites and requires coordination to resolve |
+
+### Environment Labels
+
+| Label | Description |
+|-------|-------------|
+| `linux` | Issues specific to Desktop usage on Linux |
+| `macOS` | Issues specific to Desktop usage on macOS |
+| `windows` | Issues specific to Desktop usage on Windows |
+
+### Common Labels
+
+| Label | Description |
+|-------|-------------|
+| `docs` | Issues and PRs related to documentation work |
+| `infrastructure` | Issues and PRs related to scripts and tooling |
+| `tech-debt` | Issues and PRs related to addressing technical debt |
+
+<Info>
+For complete label descriptions and links, see the [labels documentation](https://github.com/desktop/desktop/blob/development/docs/process/labels.md).
+</Info>

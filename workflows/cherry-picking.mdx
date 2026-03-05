@@ -1,0 +1,560 @@
+---
+title: "Cherry-Picking"
+description: "Learn how to cherry-pick commits to apply specific changes across branches in GitHub Desktop"
+---
+
+## Overview
+
+Cherry-picking allows you to copy specific commits from one branch to another without merging entire branches. It's useful for applying bug fixes, backporting features, or selectively including changes.
+
+<CardGroup cols={2}>
+  <Card title="Selective Changes" icon="hand-pointer">
+    Apply specific commits without merging entire branches
+  </Card>
+  <Card title="Multiple Commits" icon="layer-group">
+    Cherry-pick a range or sequence of commits at once
+  </Card>
+  <Card title="Conflict Resolution" icon="code-merge">
+    Resolve conflicts just like merging or rebasing
+  </Card>
+  <Card title="Progress Tracking" icon="chart-line">
+    Monitor progress when cherry-picking multiple commits
+  </Card>
+</CardGroup>
+
+## Understanding Cherry-Pick
+
+### What is Cherry-Picking?
+
+Cherry-picking creates a new commit that applies the changes from an existing commit:
+
+```
+Before:
+main:    A---B---C
+              \
+feature:       D---E---F
+
+After cherry-picking E to main:
+main:    A---B---C---E'
+feature:       D---E---F
+
+E' is a new commit with same changes as E but different SHA
+```
+
+### When to Cherry-Pick
+
+**Good Use Cases:**
+
+<CardGroup cols={2}>
+  <Card title="Bug Fixes" icon="bug">
+    Apply a critical fix from main to a release branch
+  </Card>
+  <Card title="Backporting" icon="backward">
+    Bring specific features to older versions
+  </Card>
+  <Card title="Selective Merging" icon="filter">
+    Include specific commits without merging everything
+  </Card>
+  <Card title="Hotfixes" icon="fire-extinguisher">
+    Apply emergency fixes across multiple branches
+  </Card>
+</CardGroup>
+
+**Avoid Cherry-Picking When:**
+- You can merge the entire branch instead
+- The commit depends on other commits not being cherry-picked
+- You're duplicating commits unnecessarily
+- A proper merge would be cleaner
+
+## Cherry-Picking in GitHub Desktop
+
+### Cherry-Pick a Single Commit
+
+<Steps>
+  <Step title="Checkout Target Branch">
+    Switch to the branch where you want to apply the commit
+  </Step>
+  <Step title="Find Source Commit">
+    - Switch to History tab
+    - Browse to the branch with the commit you want
+    - Locate the specific commit
+  </Step>
+  <Step title="Start Cherry-Pick">
+    Right-click the commit and select **Cherry-pick commit**
+  </Step>
+  <Step title="Resolve Conflicts (if any)">
+    If conflicts occur, resolve them in the Changes tab
+  </Step>
+  <Step title="Complete">
+    The commit is applied to your current branch with a new SHA
+  </Step>
+</Steps>
+
+### Cherry-Pick Multiple Commits
+
+<Steps>
+  <Step title="Select Commits">
+    In the History tab:
+    - Click first commit
+    - Hold `Shift` and click last commit to select a range
+    - Or hold `Ctrl`/`Cmd` to select individual commits
+  </Step>
+  <Step title="Cherry-Pick Selection">
+    Right-click and select **Cherry-pick X commits**
+  </Step>
+  <Step title="Monitor Progress">
+    Watch the progress bar as commits are applied
+  </Step>
+  <Step title="Handle Conflicts">
+    Resolve conflicts for each commit as they're encountered
+  </Step>
+</Steps>
+
+## Cherry-Pick Implementation
+
+From the source code:
+
+### Basic Cherry-Pick Operation
+
+```typescript
+// From app/src/lib/git/cherry-pick.ts
+export async function cherryPick(
+  repository: Repository,
+  commits: ReadonlyArray<CommitOneLine>,
+  progressCallback?: (progress: IMultiCommitOperationProgress) => void
+): Promise<CherryPickResult> {
+  if (commits.length === 0) {
+    return CherryPickResult.UnableToStart
+  }
+  
+  const baseOptions: IGitStringExecutionOptions = {
+    expectedErrors: new Set([
+      GitError.MergeConflicts,
+      GitError.ConflictModifyDeletedInBranch,
+    ]),
+  }
+  
+  // --empty=keep: Keep commits even if they become empty
+  // -m 1: For merge commits, use first parent
+  const result = await git(
+    ['cherry-pick', ...commits.map(c => c.sha), '--empty=keep', '-m 1'],
+    repository.path,
+    'cherry-pick',
+    baseOptions
+  )
+  
+  return parseCherryPickResult(result)
+}
+```
+
+### Progress Tracking
+
+```typescript
+class GitCherryPickParser {
+  parse(line: string): IMultiCommitOperationProgress | null {
+    const cherryPickRe = /^\[(.*\s.*)\]/
+    const match = cherryPickRe.exec(line)
+    
+    if (match === null) {
+      return null  // Skip non-commit lines
+    }
+    
+    this.count++
+    
+    return {
+      kind: 'multiCommitOperation',
+      value: round(this.count / this.commits.length, 2),
+      position: this.count,
+      totalCommitCount: this.commits.length,
+      currentCommitSummary: this.commits[this.count - 1]?.summary ?? '',
+    }
+  }
+}
+```
+
+GitHub Desktop parses Git's output to show real-time progress:
+```
+[main a1b2c3d] Fix critical bug
+ Date: Mon Mar 5 10:30:00 2024
+ 1 file changed, 1 insertion(+)
+```
+
+### Result Handling
+
+```typescript
+export enum CherryPickResult {
+  CompletedWithoutError,      // Success!
+  ConflictsEncountered,       // Need to resolve conflicts
+  OutstandingFilesNotStaged,  // Files need staging
+  UnableToStart,              // Can't begin cherry-pick
+  Error,                      // Unexpected error
+}
+
+function parseCherryPickResult(result: IGitResult): CherryPickResult {
+  if (result.exitCode === 0) {
+    return CherryPickResult.CompletedWithoutError
+  }
+  
+  switch (result.gitError) {
+    case GitError.ConflictModifyDeletedInBranch:
+    case GitError.MergeConflicts:
+      return CherryPickResult.ConflictsEncountered
+    case GitError.UnresolvedConflicts:
+      return CherryPickResult.OutstandingFilesNotStaged
+    default:
+      throw new Error(`Unhandled result: ${JSON.stringify(result)}`)
+  }
+}
+```
+
+## Handling Conflicts
+
+### When Conflicts Occur
+
+Cherry-picking can cause conflicts when:
+- The commit modifies lines that differ in the target branch
+- Files have been renamed or moved
+- Dependencies aren't present in target branch
+
+<Steps>
+  <Step title="Cherry-Pick Pauses">
+    GitHub Desktop stops and shows conflicted files
+  </Step>
+  <Step title="Review Conflicts">
+    Check which files have conflicts in the Changes tab
+  </Step>
+  <Step title="Resolve Each File">
+    - Open in editor to manually resolve
+    - Or use "ours" / "theirs" for simple cases
+  </Step>
+  <Step title="Continue Cherry-Pick">
+    Click **Continue cherry-pick** after resolving
+  </Step>
+</Steps>
+
+### Continue After Conflicts
+
+```typescript
+export async function continueCherryPick(
+  repository: Repository,
+  files: ReadonlyArray<WorkingDirectoryFileChange>,
+  manualResolutions: ReadonlyMap<string, ManualConflictResolution>,
+  progressCallback?: (progress: IMultiCommitOperationProgress) => void
+): Promise<CherryPickResult> {
+  // Only stage tracked files (ignore untracked)
+  const trackedFiles = files.filter(f => {
+    return f.status.kind !== AppFileStatusKind.Untracked
+  })
+  
+  // Apply manual resolutions
+  for (const [path, resolution] of manualResolutions) {
+    await stageManualConflictResolution(repository, file, resolution)
+  }
+  
+  await stageFiles(repository, otherFiles)
+  
+  // Check if commit is now empty
+  const status = await getStatus(repository)
+  const trackedFilesAfter = status.workingDirectory.files.filter(
+    f => f.status.kind !== AppFileStatusKind.Untracked
+  )
+  
+  if (trackedFilesAfter.length === 0) {
+    // Commit is empty - still include it with --allow-empty
+    await git(['commit', '--allow-empty'])
+  } else {
+    // Continue with the cherry-pick
+    await git(['cherry-pick', '--continue'])
+  }
+}
+```
+
+<Info>
+GitHub Desktop preserves empty commits with `--empty=keep`, ensuring cherry-picked commits appear in history even if they have no changes.
+</Info>
+
+### Abort Cherry-Pick
+
+To cancel the cherry-pick operation:
+
+<Steps>
+  <Step title="Click Abort">
+    Click **Abort cherry-pick** in the banner
+  </Step>
+  <Step title="Confirm">
+    Confirm you want to discard the cherry-pick
+  </Step>
+  <Step title="Return to Previous State">
+    Repository returns to state before cherry-pick
+  </Step>
+</Steps>
+
+```typescript
+export async function abortCherryPick(repository: Repository) {
+  await git(['cherry-pick', '--abort'], repository.path, 'abortCherryPick')
+}
+```
+
+## Cherry-Pick State Detection
+
+GitHub Desktop detects ongoing cherry-picks:
+
+```typescript
+export async function isCherryPickHeadFound(
+  repository: Repository
+): Promise<boolean> {
+  try {
+    const cherryPickHeadPath = Path.join(
+      repository.path,
+      '.git',
+      'CHERRY_PICK_HEAD'
+    )
+    return pathExists(cherryPickHeadPath)
+  } catch (err) {
+    log.warn('[cherryPick] Cannot read CHERRY_PICK_HEAD')
+    return false
+  }
+}
+```
+
+If `.git/CHERRY_PICK_HEAD` exists:
+- Cherry-pick is in progress
+- Stopped due to conflicts
+- Can continue or abort
+
+### Reading Cherry-Pick Progress
+
+```typescript
+export async function getCherryPickSnapshot(
+  repository: Repository
+): Promise<ICherryPickSnapshot | null> {
+  if (!isCherryPickHeadFound(repository)) {
+    return null
+  }
+  
+  // Read sequencer files:
+  // .git/sequencer/abort-safety - last successfully picked commit SHA
+  // .git/sequencer/head - original HEAD before cherry-pick
+  // .git/sequencer/todo - remaining commits to pick
+  
+  const remainingPicks = await readFile(
+    Path.join(repository.path, '.git', 'sequencer', 'todo')
+  )
+  
+  // Parse format: "pick shortSha commitSummary"
+  const remainingCommits: CommitOneLine[] = []
+  remainingPicks.split('\n').forEach(line => {
+    line = line.replace(/^pick /, '')
+    if (line.includes(' ')) {
+      const sha = line.substr(0, line.indexOf(' '))
+      const summary = line.substr(sha.length + 1)
+      remainingCommits.push({ sha, summary })
+    }
+  })
+  
+  return {
+    progress: { /* ... */ },
+    remainingCommits,
+    commits: [...pickedCommits, ...remainingCommits],
+    targetBranchUndoSha: headSha,
+  }
+}
+```
+
+## Merge Commits
+
+When cherry-picking merge commits:
+
+```bash
+git cherry-pick -m 1 <merge-commit-sha>
+```
+
+The `-m 1` flag tells Git to use the first parent:
+- Parent 1: The branch you were on when merging
+- Parent 2: The branch that was merged in
+
+<Info>
+GitHub Desktop always uses `-m 1` when cherry-picking, which means it preserves the changes from the merge commit's first parent.
+</Info>
+
+## Empty Commits
+
+Sometimes a cherry-picked commit becomes empty:
+- Changes already exist in the target branch
+- Conflicts were resolved by removing all changes
+
+GitHub Desktop handles this with `--empty=keep`:
+
+```bash
+git cherry-pick --empty=keep <sha>
+```
+
+This ensures:
+- Commit appears in history
+- Maintains commit sequence
+- Preserves intent even without changes
+
+## Common Cherry-Pick Scenarios
+
+### Backport Bug Fix
+
+```
+Scenario: Fix found in main, need in release branch
+
+1. Checkout release-1.0 branch
+2. Find fix commit in main branch history
+3. Cherry-pick the fix commit
+4. Test the fix works in release branch
+5. Push to update release
+```
+
+### Apply Hotfix to Multiple Branches
+
+```
+Scenario: Critical fix needed in v1.0, v2.0, and main
+
+1. Create fix in hotfix branch
+2. Cherry-pick to release-1.0
+3. Cherry-pick to release-2.0  
+4. Cherry-pick to main
+5. Or merge hotfix to main, cherry-pick to releases
+```
+
+### Selective Feature Migration
+
+```
+Scenario: Want specific commits from feature branch
+
+1. Identify which commits to include
+2. Checkout target branch (e.g., main)
+3. Select and cherry-pick desired commits
+4. Test that partial feature works
+5. Commit and push
+```
+
+## Best Practices
+
+<Tip>
+**Cherry-pick sparingly**: Consider whether a merge or rebase would be more appropriate before cherry-picking.
+</Tip>
+
+1. **Understand Dependencies**
+   - Ensure commit doesn't depend on others
+   - Check if related commits need to come too
+   - Test after cherry-picking
+
+2. **Keep Commit Order**
+   - Cherry-pick commits in chronological order
+   - Maintains logical sequence
+   - Reduces conflicts
+
+3. **Document Cherry-Picks**
+   - Note in commit message that it's a cherry-pick
+   - Reference original commit SHA
+   - Explain why it was cherry-picked
+
+4. **Test Thoroughly**
+   - Cherry-picked code may behave differently
+   - Ensure tests pass
+   - Verify integration works
+
+5. **Avoid Cherry-Pick Chains**
+   - Don't cherry-pick cherry-picked commits
+   - Creates confusing history
+   - Better to merge or rebase
+
+6. **Communicate with Team**
+   - Let others know you're cherry-picking
+   - Avoid duplicate work
+   - Coordinate on shared branches
+
+## Commit Message Reference
+
+When cherry-picking, consider adding context:
+
+```text
+Fix login timeout issue
+
+(cherry picked from commit a1b2c3d4e5f6g7h8i9j0)
+
+Original fix was in main branch. Backporting to release-1.0
+for critical bug fix.
+```
+
+Or let Git add it automatically:
+```bash
+git cherry-pick -x <sha>  # Adds "(cherry picked from...)" line
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cherry-Pick Results in Empty Commit">
+    If a cherry-picked commit has no changes:
+    - Changes already exist in target branch
+    - Commit was already merged differently
+    - Conflicts were resolved by keeping all current code
+    
+    GitHub Desktop keeps the commit with `--empty=keep` to preserve history.
+  </Accordion>
+  
+  <Accordion title="Cannot Cherry-Pick">
+    Cherry-pick is disabled when:
+    - Uncommitted changes exist (commit or stash first)
+    - Another operation is in progress (merge, rebase, etc.)
+    - Working directory has conflicts
+    - Repository is in detached HEAD state
+  </Accordion>
+  
+  <Accordion title="Conflicts in Every Commit">
+    If cherry-picking multiple commits with constant conflicts:
+    - Target branch has diverged significantly
+    - Consider merging instead of cherry-picking
+    - Or rebase the source branch first
+    - Cherry-pick may not be the right approach
+  </Accordion>
+  
+  <Accordion title="Lost Cherry-Pick Progress">
+    If cherry-pick state is lost:
+    - Check `.git/CHERRY_PICK_HEAD` exists
+    - Try `git cherry-pick --continue` in terminal
+    - Check `git status` for hints
+    - May need to abort and restart
+  </Accordion>
+  
+  <Accordion title="Merge Commit Won't Cherry-Pick">
+    If cherry-picking a merge commit fails:
+    - Ensure you're using `-m 1` (GitHub Desktop does automatically)
+    - You may need to cherry-pick both sides separately
+    - Or use `git cherry-pick -m 2` for the other parent
+    - Consider whether cherry-picking a merge makes sense
+  </Accordion>
+</AccordionGroup>
+
+## Alternative Approaches
+
+Before cherry-picking, consider:
+
+### Merge Instead
+- If you need most commits from a branch
+- Preserves complete history
+- Easier to track relationships
+- No duplicate commits
+
+### Rebase Instead  
+- If reorganizing commits on same branch
+- Creates linear history
+- No duplicate commits
+- Better for feature branch workflow
+
+### Create Patch
+- For sharing changes outside Git
+- Cross-repository changes
+- Manual application needed
+
+## Related Topics
+
+- [Merge Conflicts](/features/merge-conflicts)
+- [Rebasing](/workflows/rebasing)
+- [Branches](/features/branches)
+- [History and Diffs](/features/history-and-diffs)

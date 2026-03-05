@@ -1,0 +1,431 @@
+---
+title: Command Line Interface
+description: Use GitHub Desktop from the command line to open repositories, clone projects, and automate workflows
+---
+
+GitHub Desktop includes a command-line interface (CLI) that allows you to interact with the application from your terminal, making it easy to integrate Desktop into scripts and workflows.
+
+## Installation
+
+The CLI is bundled with GitHub Desktop and available after installation:
+
+<CodeGroup>
+```bash macOS
+# CLI is available as 'github' after installation
+github --help
+```
+
+```powershell Windows
+# CLI is available as 'github.exe' in the installation directory
+github --help
+```
+</CodeGroup>
+
+<Note>
+On Windows, you may need to add the GitHub Desktop installation directory to your PATH environment variable.
+</Note>
+
+## Usage
+
+The CLI supports three main operations: opening repositories, cloning repositories, and getting help.
+
+### Basic Syntax
+
+```bash
+github [command] [options] [arguments]
+```
+
+## Commands
+
+### Open Repository
+
+Open the current directory or a specific path in GitHub Desktop:
+
+<CodeGroup>
+```bash Open Current Directory
+github
+```
+
+```bash Open Specific Path
+github /path/to/repository
+```
+
+```bash Open with Command
+github open /path/to/repository
+```
+</CodeGroup>
+
+The CLI implementation:
+
+```ts app/src/cli/main.ts
+const [firstArg, secondArg] = args._
+const pathArg = firstArg === 'open' ? secondArg : firstArg
+const path = resolve(pathArg ?? '.')
+run(`--cli-open=${path}`)
+```
+
+### Clone Repository
+
+Clone a repository by URL or owner/name format:
+
+<Steps>
+  <Step title="Clone by URL">
+    ```bash
+    github clone https://github.com/owner/repo
+    ```
+  </Step>
+
+  <Step title="Clone by shorthand">
+    ```bash
+    github clone owner/repo
+    ```
+
+    The CLI automatically expands `owner/repo` format to the full GitHub URL:
+
+    ```ts app/src/cli/main.ts
+    const url =
+      urlArg && /^[^\/]+\/[^\/]+$/.test(urlArg)
+        ? `https://github.com/${urlArg}`
+        : urlArg
+    ```
+  </Step>
+
+  <Step title="Clone specific branch">
+    ```bash
+    github clone owner/repo --branch develop
+    github clone owner/repo -b develop
+    ```
+
+    ```ts app/src/cli/main.ts
+    if (typeof args.branch === 'string') {
+      run(`--cli-clone=${url}`, `--cli-branch=${args.branch}`)
+    } else {
+      run(`--cli-clone=${url}`)
+    }
+    ```
+  </Step>
+</Steps>
+
+### Help
+
+Display usage information:
+
+```bash
+github --help
+github -h
+github help
+```
+
+## CLI Implementation
+
+The CLI uses `minimist` for argument parsing and platform-specific launching:
+
+```ts app/src/cli/main.ts
+import { join, resolve } from 'path'
+import parse from 'minimist'
+import { execFile, spawn } from 'child_process'
+
+const args = parse(process.argv.slice(2), {
+  alias: { help: 'h', branch: 'b' },
+  boolean: ['help'],
+})
+```
+
+### Argument Parsing
+
+The CLI supports these options:
+
+| Option | Alias | Type | Description |
+|--------|-------|------|-------------|
+| `--help` | `-h` | boolean | Display help information |
+| `--branch` | `-b` | string | Specify branch when cloning |
+
+### Platform-Specific Launching
+
+<CodeGroup>
+```ts macOS
+if (process.platform === 'darwin') {
+  execFile('open', [
+    '-n',                           // Open new instance
+    join(__dirname, '../../..'),    // Path to .app bundle
+    '--args',
+    ...args
+  ], callback)
+}
+```
+
+```ts Windows
+if (process.platform === 'win32') {
+  const exeName = `GitHubDesktop${__DEV__ ? '-dev' : ''}.exe`
+  spawn(join(__dirname, `../../${exeName}`), args, {
+    detached: true,  // Run independently
+    stdio: 'ignore', // Don't capture output
+  })
+    .on('error', callback)
+    .on('exit', code => (process.exitCode = code ?? process.exitCode))
+    .unref()         // Don't wait for process
+}
+```
+</CodeGroup>
+
+<Note>
+The CLI spawns GitHub Desktop as a detached process, allowing the terminal session to continue independently.
+</Note>
+
+## Usage Examples
+
+### Open Current Repository
+
+```bash
+cd ~/projects/my-app
+github
+```
+
+### Open Specific Repository
+
+```bash
+github ~/projects/another-repo
+```
+
+### Clone and Open
+
+<Steps>
+  <Step title="Clone from GitHub">
+    ```bash
+    github clone facebook/react
+    ```
+  </Step>
+
+  <Step title="Clone specific branch">
+    ```bash
+    github clone facebook/react --branch main
+    ```
+  </Step>
+
+  <Step title="Clone from URL">
+    ```bash
+    github clone https://github.com/microsoft/vscode.git
+    ```
+  </Step>
+</Steps>
+
+### Workflow Integration
+
+Integrate the CLI into shell scripts:
+
+<CodeGroup>
+```bash Setup Script
+#!/bin/bash
+# Clone and open a repository
+
+REPO="$1"
+BRANCH="${2:-main}"
+
+if [ -z "$REPO" ]; then
+  echo "Usage: $0 <owner/repo> [branch]"
+  exit 1
+fi
+
+echo "Cloning $REPO (branch: $BRANCH)..."
+github clone "$REPO" --branch "$BRANCH"
+```
+
+```powershell PowerShell Script
+# Clone and open a repository
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$Repo,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Branch = "main"
+)
+
+Write-Host "Cloning $Repo (branch: $Branch)..."
+github clone $Repo --branch $Branch
+```
+</CodeGroup>
+
+## Error Handling
+
+The CLI includes comprehensive error handling:
+
+```ts app/src/cli/main.ts
+const run = (...args: Array<string>) => {
+  function cb(e: unknown | null, stderr?: string) {
+    if (e) {
+      console.error(`Error running command ${args}`)
+      console.error(stderr ?? `${e}`)
+      process.exit(
+        typeof e === 'object' && 'code' in e && typeof e.code === 'number'
+          ? e.code
+          : 1
+      )
+    }
+  }
+  // ... launch logic
+}
+```
+
+### Help Output
+
+```ts app/src/cli/main.ts
+const usage = (exitCode = 1): never => {
+  process.stderr.write(
+    'GitHub Desktop CLI usage: \n' +
+      '  github                            Open the current directory\n' +
+      '  github open [path]                Open the provided path\n' +
+      '  github clone [-b branch] <url>    Clone the repository by url or name/owner\n' +
+      '                                    (ex torvalds/linux), optionally checking out\n' +
+      '                                    the branch\n'
+  )
+  process.exit(exitCode)
+}
+```
+
+## Advanced Usage
+
+### Opening Recently Cloned Repository
+
+After cloning a repository, GitHub Desktop automatically opens it:
+
+```bash
+# Clone and immediately start working
+github clone microsoft/typescript
+# GitHub Desktop opens with the repository ready
+```
+
+### Path Resolution
+
+The CLI resolves paths relative to the current working directory:
+
+```ts app/src/cli/main.ts
+const path = resolve(pathArg ?? '.')
+run(`--cli-open=${path}`)
+```
+
+This means you can use relative paths:
+
+```bash
+# Open parent directory's repository
+github ..
+
+# Open sibling directory
+github ../other-repo
+```
+
+### Environment Variables
+
+The CLI removes the `ELECTRON_RUN_AS_NODE` environment variable to ensure proper launching:
+
+```ts app/src/cli/main.ts
+delete process.env.ELECTRON_RUN_AS_NODE
+```
+
+## Common Patterns
+
+### Quick Project Setup
+
+<CodeGroup>
+```bash Clone and Install
+# Clone repository
+github clone owner/repo
+
+# In another terminal, install dependencies
+cd repo
+npm install
+
+# GitHub Desktop is already open and ready
+```
+
+```bash Multiple Repositories
+# Open multiple repositories quickly
+github clone facebook/react &
+github clone vuejs/vue &
+github clone angular/angular &
+wait
+
+echo "All repositories cloned and opened!"
+```
+</CodeGroup>
+
+### Integration with Git Workflows
+
+```bash
+#!/bin/bash
+# Create and open a new feature branch
+
+FEATURE="$1"
+
+if [ -z "$FEATURE" ]; then
+  echo "Usage: $0 <feature-name>"
+  exit 1
+fi
+
+# Create branch
+git checkout -b "feature/$FEATURE"
+
+# Open in GitHub Desktop
+github .
+
+echo "Feature branch created and opened in GitHub Desktop"
+```
+
+## Troubleshooting
+
+### Command Not Found
+
+<Steps>
+  <Step title="Check installation">
+    Verify GitHub Desktop is installed and the CLI is available:
+
+    ```bash
+    which github  # macOS/Linux
+    where github  # Windows
+    ```
+  </Step>
+
+  <Step title="Add to PATH (Windows)">
+    On Windows, add the GitHub Desktop installation directory to your PATH:
+
+    ```powershell
+    $env:Path += ";$env:LOCALAPPDATA\GitHubDesktop"
+    ```
+  </Step>
+
+  <Step title="Restart terminal">
+    After installation or PATH changes, restart your terminal to pick up the new commands.
+  </Step>
+</Steps>
+
+### Repository Not Opening
+
+If a repository doesn't open:
+
+1. **Verify the path exists**:
+   ```bash
+   ls -la /path/to/repo
+   ```
+
+2. **Check it's a Git repository**:
+   ```bash
+   cd /path/to/repo
+   git status
+   ```
+
+3. **Check GitHub Desktop logs** for error messages
+
+### Clone Fails
+
+If cloning fails:
+
+- **Verify repository exists**: Check the URL or owner/repo format
+- **Check authentication**: Ensure you're logged into GitHub Desktop
+- **Network connectivity**: Verify you can reach github.com
+- **Branch exists**: If specifying a branch, ensure it exists in the repository
+
+<Card title="Related" icon="link">
+  - [Repository Management](/core-features/repository-management)
+  - [Branch Management](/core-features/branch-management)
+  - [Shell Integration](/integrations/shell-integration)
+</Card>

@@ -1,0 +1,664 @@
+---
+title: "Git Configuration"
+description: "Understand and manage Git configuration in GitHub Desktop"
+---
+
+## Overview
+
+Git configuration controls how Git behaves. GitHub Desktop manages most Git configuration automatically, but understanding how it works helps you customize behavior when needed.
+
+<CardGroup cols={2}>
+  <Card title="Global Config" icon="globe">
+    Settings that apply to all repositories
+  </Card>
+  <Card title="Local Config" icon="folder">
+    Repository-specific settings
+  </Card>
+  <Card title="User Identity" icon="user">
+    Name and email for commits
+  </Card>
+  <Card title="Behavior Settings" icon="gear">
+    Line endings, merge strategies, and more
+  </Card>
+</CardGroup>
+
+## Configuration Levels
+
+Git configuration exists at three levels:
+
+### System Level
+```bash
+# Applies to all users on the system
+/etc/gitconfig  (Linux/macOS)
+C:\ProgramData\Git\config  (Windows)
+```
+
+Rarely used in GitHub Desktop workflows.
+
+### Global Level  
+```bash
+# Applies to all repositories for current user
+~/.gitconfig  (Linux/macOS)
+C:\Users\<username>\.gitconfig  (Windows)
+```
+
+This is where GitHub Desktop stores most settings.
+
+### Local Level
+```bash
+# Applies only to specific repository
+<repository>/.git/config
+```
+
+Repository-specific overrides.
+
+## Configuration Priority
+
+When Git looks for a setting:
+
+1. **Local** (repository-specific) - Highest priority
+2. **Global** (user-level)
+3. **System** (machine-wide) - Lowest priority
+
+Local settings override global, which override system.
+
+## Reading Configuration
+
+GitHub Desktop provides functions to read Git configuration:
+
+```typescript
+// From app/src/lib/git/config.ts
+export function getConfigValue(
+  repository: Repository,
+  name: string,
+  onlyLocal: boolean = false
+): Promise<string | null> {
+  return getConfigValueInPath(name, repository.path, onlyLocal)
+}
+
+export function getGlobalConfigValue(
+  name: string,
+  env?: { HOME: string }
+): Promise<string | null> {
+  return getConfigValueInPath(name, null, false, undefined, env)
+}
+
+async function getConfigValueInPath(
+  name: string,
+  path: string | null,
+  onlyLocal: boolean = false,
+  type?: 'bool' | 'int' | 'path',
+  env?: { HOME: string }
+): Promise<string | null> {
+  const flags = ['config', '-z']
+  
+  if (!path) {
+    flags.push('--global')
+  } else if (onlyLocal) {
+    flags.push('--local')
+  }
+  
+  if (type !== undefined) {
+    flags.push('--type', type)
+  }
+  
+  flags.push(name)
+  
+  const result = await git(flags, path || __dirname, 'getConfigValueInPath', {
+    successExitCodes: new Set([0, 1]),
+    env,
+  })
+  
+  // Git exits with 1 if the value isn't found
+  if (result.exitCode === 1) {
+    return null
+  }
+  
+  const output = result.stdout
+  const pieces = output.split('\0')
+  return pieces[0]
+}
+```
+
+**Usage Examples:**
+```typescript
+// Read global user name
+const name = await getGlobalConfigValue('user.name')
+
+// Read repository-specific email
+const email = await getConfigValue(repository, 'user.email')
+
+// Read boolean value
+const value = await getBooleanConfigValue(repository, 'core.bare')
+```
+
+<Info>
+GitHub Desktop uses the `-z` flag with `git config` for null-terminated output, which safely handles values containing newlines.
+</Info>
+
+## Writing Configuration
+
+### Setting Values
+
+```typescript
+export async function setConfigValue(
+  repository: Repository,
+  name: string,
+  value: string,
+  env?: { HOME: string }
+): Promise<void> {
+  return setConfigValueInPath(name, value, repository.path, env)
+}
+
+export async function setGlobalConfigValue(
+  name: string,
+  value: string,
+  env?: { HOME: string }
+): Promise<void> {
+  return setConfigValueInPath(name, value, null, env)
+}
+
+async function setConfigValueInPath(
+  name: string,
+  value: string,
+  path: string | null,
+  env?: { HOME: string }
+): Promise<void> {
+  const flags = ['config']
+  
+  if (!path) {
+    flags.push('--global')
+  }
+  
+  flags.push('--replace-all', name, value)
+  
+  await git(flags, path || __dirname, 'setConfigValueInPath', { env })
+}
+```
+
+**Example:**
+```typescript
+// Set global user name
+await setGlobalConfigValue('user.name', 'Jane Doe')
+
+// Set repository-specific email
+await setConfigValue(repository, 'user.email', 'jane@example.com')
+```
+
+### Adding Multiple Values
+
+Some settings can have multiple values:
+
+```typescript
+export async function addGlobalConfigValue(
+  name: string,
+  value: string
+): Promise<void> {
+  await git(
+    ['config', '--global', '--add', name, value],
+    __dirname,
+    'addGlobalConfigValue'
+  )
+}
+```
+
+**Example:**
+```bash
+# Add multiple safe directories
+git config --global --add safe.directory /path/to/repo1
+git config --global --add safe.directory /path/to/repo2
+```
+
+### Removing Values
+
+```typescript
+export async function removeConfigValue(
+  repository: Repository,
+  name: string,
+  env?: { HOME: string }
+): Promise<void> {
+  return removeConfigValueInPath(name, repository.path, env)
+}
+
+async function removeConfigValueInPath(
+  name: string,
+  path: string | null,
+  env?: { HOME: string }
+): Promise<void> {
+  const flags = ['config']
+  
+  if (!path) {
+    flags.push('--global')
+  }
+  
+  flags.push('--unset-all', name)
+  
+  await git(flags, path || __dirname, 'removeConfigValueInPath', { env })
+}
+```
+
+## Common Git Configuration
+
+### User Identity
+
+```bash
+# Set your name
+git config --global user.name "Your Name"
+
+# Set your email
+git config --global user.email "your.email@example.com"
+```
+
+GitHub Desktop sets these through **File** > **Options** > **Git**.
+
+### Default Branch
+
+```bash
+# Set default branch name for new repositories
+git config --global init.defaultBranch main
+```
+
+Configurable in GitHub Desktop preferences.
+
+### Line Endings
+
+```bash
+# Windows - convert LF to CRLF on checkout, CRLF to LF on commit
+git config --global core.autocrlf true
+
+# macOS/Linux - convert CRLF to LF on commit, no conversion on checkout
+git config --global core.autocrlf input
+
+# No conversion (use .gitattributes instead)
+git config --global core.autocrlf false
+```
+
+<Tip>
+Use `.gitattributes` for fine-grained control over line endings instead of relying solely on `core.autocrlf`.
+</Tip>
+
+### Editor
+
+```bash
+# Set default editor for commit messages
+git config --global core.editor "code --wait"
+```
+
+GitHub Desktop handles commit messages in the UI, so this mainly affects command-line Git.
+
+### Merge Tool
+
+```bash
+# Set merge conflict resolution tool
+git config --global merge.tool vscode
+git config --global mergetool.vscode.cmd 'code --wait $MERGED'
+```
+
+### Credential Storage
+
+```bash
+# Store credentials in OS credential manager
+git config --global credential.helper manager  # Windows
+git config --global credential.helper osxkeychain  # macOS
+git config --global credential.helper libsecret  # Linux
+```
+
+GitHub Desktop uses OS credential storage automatically.
+
+## Safe Directories
+
+Git 2.35.2+ requires repositories to be marked as "safe":
+
+```typescript
+export async function addSafeDirectory(path: string) {
+  // UNC paths on Windows need special prefix
+  if (__WIN32__ && path[0] === '/') {
+    path = `%(prefix)/${path}`
+  }
+  
+  await addGlobalConfigValueIfMissing('safe.directory', path)
+}
+
+export async function addGlobalConfigValueIfMissing(
+  name: string,
+  value: string
+): Promise<void> {
+  const { stdout, exitCode } = await git(
+    ['config', '--global', '-z', '--get-all', name, value],
+    __dirname,
+    'addGlobalConfigValue',
+    { successExitCodes: new Set([0, 1]) }
+  )
+  
+  // Only add if not already present
+  if (exitCode === 1 || !stdout.split('\0').includes(value)) {
+    await addGlobalConfigValue(name, value)
+  }
+}
+```
+
+This prevents Git from refusing to work in repositories owned by other users.
+
+## Getting Global Config Path
+
+```typescript
+export const getGlobalConfigPath = (env?: { HOME: string }) =>
+  git(['config', '--edit', '--global'], __dirname, 'getGlobalConfigPath', {
+    // Use printf instead of echo to avoid escape sequence issues
+    env: { ...env, GIT_EDITOR: 'printf %s' },
+  }).then(x => normalize(x.stdout))
+```
+
+Returns the path to `.gitconfig`, creating it if it doesn't exist.
+
+## Repository-Specific Configuration
+
+Override global settings for a specific repository:
+
+### Via GitHub Desktop
+
+<Steps>
+  <Step title="Open Repository Settings">
+    Right-click repository > **Repository Settings**
+  </Step>
+  <Step title="Configure Identity">
+    Set name and email specific to this repository
+  </Step>
+  <Step title="Additional Settings">
+    Use terminal for advanced configuration
+  </Step>
+</Steps>
+
+### Via Command Line
+
+```bash
+# In the repository directory
+cd /path/to/repo
+
+# Set repository-specific email
+git config user.email work@company.com
+
+# Set repository-specific name
+git config user.name "Work Name"
+
+# View local config
+git config --local --list
+```
+
+## Common Configuration Scenarios
+
+### Work vs. Personal Repositories
+
+```bash
+# Global defaults (personal)
+git config --global user.name "Personal Name"
+git config --global user.email "personal@example.com"
+
+# Override for work repositories
+cd ~/work/company-repo
+git config user.email "work@company.com"
+git config user.name "Professional Name"
+```
+
+### GPG Signing
+
+```bash
+# Set GPG key
+git config --global user.signingkey <key-id>
+
+# Enable automatic signing
+git config --global commit.gpgsign true
+
+# Enable for tags too
+git config --global tag.gpgsign true
+```
+
+### Proxy Settings
+
+```bash
+# Set HTTP proxy
+git config --global http.proxy http://proxy.example.com:8080
+
+# Set HTTPS proxy
+git config --global https.proxy https://proxy.example.com:8080
+
+# Bypass proxy for specific domain
+git config --global http.https://github.com.proxy ""
+```
+
+See [Proxies](/configuration/proxies) for more details.
+
+### Large File Storage (LFS)
+
+```bash
+# Enable LFS
+git lfs install
+
+# Track specific file types
+git lfs track "*.psd"
+git lfs track "*.mp4"
+
+# View LFS config
+git config --list | grep lfs
+```
+
+## Viewing All Configuration
+
+### List All Settings
+
+```bash
+# View all config (system, global, local)
+git config --list
+
+# View global config only
+git config --global --list
+
+# View local config only
+git config --local --list
+
+# Show origin of each setting
+git config --list --show-origin
+```
+
+### View Specific Section
+
+```bash
+# All user settings
+git config --get-regexp user
+
+# All core settings
+git config --get-regexp core
+
+# All remote settings
+git config --get-regexp remote
+```
+
+## Advanced Configuration
+
+### Aliases
+
+Create shortcuts for common commands:
+
+```bash
+git config --global alias.st status
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+
+# Now you can use:
+git st  # instead of git status
+git co main  # instead of git checkout main
+```
+
+### Diff and Merge Settings
+
+```bash
+# Better diff algorithm
+git config --global diff.algorithm histogram
+
+# Show moved lines in diffs
+git config --global diff.colorMoved zebra
+
+# Default merge strategy
+git config --global pull.rebase false  # merge (default)
+git config --global pull.rebase true   # rebase
+```
+
+### Performance
+
+```bash
+# Enable parallel index preload
+git config --global core.preloadindex true
+
+# Enable file system cache (Windows)
+git config --global core.fscache true
+
+# Limit delta compression
+git config --global pack.windowMemory 256m
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Wrong Author on Commits">
+    If commits show the wrong author:
+    
+    ```bash
+    # Check current config
+    git config user.name
+    git config user.email
+    
+    # Check global config
+    git config --global user.name
+    git config --global user.email
+    
+    # Set correct values
+    git config --global user.name "Correct Name"
+    git config --global user.email "correct@example.com"
+    ```
+  </Accordion>
+  
+  <Accordion title="Config Not Taking Effect">
+    If configuration changes don't work:
+    
+    - Check config priority (local > global > system)
+    - Verify you're setting the right level
+    - Restart GitHub Desktop after changes
+    - Check for typos in config names
+    
+    ```bash
+    # See which value is being used and where it's from
+    git config --show-origin user.email
+    ```
+  </Accordion>
+  
+  <Accordion title="Cannot Edit Config">
+    If config commands fail:
+    
+    - Check file permissions on `.gitconfig`
+    - Ensure Git is in PATH
+    - Try running as administrator (Windows)
+    - Check for file locks
+    
+    ```bash
+    # Edit config file directly
+    git config --global --edit
+    ```
+  </Accordion>
+  
+  <Accordion title="Reset All Configuration">
+    To start fresh:
+    
+    ```bash
+    # Backup current config
+    cp ~/.gitconfig ~/.gitconfig.backup
+    
+    # Remove config file
+    rm ~/.gitconfig
+    
+    # Reconfigure
+    git config --global user.name "Your Name"
+    git config --global user.email "your@email.com"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+**Use `.gitattributes` for line endings**: Instead of relying on `core.autocrlf`, define line endings per file type in `.gitattributes` for consistent behavior across all contributors.
+</Tip>
+
+1. **Set Identity First**
+   - Always configure `user.name` and `user.email` before committing
+   - Use work email for work repositories
+   - Use personal email for open-source contributions
+
+2. **Document Custom Configuration**
+   - Keep notes on non-standard settings
+   - Share team configuration in repository README
+   - Use consistent settings across team
+
+3. **Use .gitattributes**
+   - Define line endings per file type
+   - More reliable than `core.autocrlf`
+   - Committed to repository (shared with team)
+
+4. **Review Regularly**
+   - Audit config occasionally: `git config --list`
+   - Remove obsolete settings
+   - Update deprecated options
+
+5. **Avoid System-Level Config**
+   - Use global or local instead
+   - System config affects all users
+   - Can cause confusion
+
+## Configuration Files
+
+### Example .gitconfig
+
+```ini
+[user]
+    name = Jane Doe
+    email = jane@example.com
+[core]
+    autocrlf = input
+    editor = code --wait
+[init]
+    defaultBranch = main
+[pull]
+    rebase = false
+[credential]
+    helper = osxkeychain
+[alias]
+    st = status
+    co = checkout
+    br = branch
+    ci = commit
+```
+
+### Example .git/config (Local)
+
+```ini
+[core]
+    repositoryformatversion = 0
+    filemode = true
+    bare = false
+    logallrefupdates = true
+[remote "origin"]
+    url = https://github.com/user/repo.git
+    fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+    remote = origin
+    merge = refs/heads/main
+[user]
+    email = work@company.com
+```
+
+## Related Topics
+
+- [Preferences](/configuration/preferences)
+- [Authentication](/configuration/authentication)
+- [Proxies](/configuration/proxies)
+- [Repository Management](/features/repository-management)

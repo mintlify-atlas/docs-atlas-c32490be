@@ -1,0 +1,566 @@
+---
+title: "Preferences"
+description: "Configure GitHub Desktop settings, appearance, integrations, and behavior"
+---
+
+## Overview
+
+GitHub Desktop provides comprehensive preferences to customize the app's behavior, appearance, and integrations to match your workflow.
+
+<CardGroup cols={2}>
+  <Card title="Appearance" icon="palette">
+    Choose themes and customize the UI
+  </Card>
+  <Card title="Git Configuration" icon="git">
+    Set your Git identity and default settings
+  </Card>
+  <Card title="Integrations" icon="plug">
+    Connect external editors and terminal apps
+  </Card>
+  <Card title="Advanced Options" icon="sliders">
+    Configure proxy, SSH, and advanced Git settings
+  </Card>
+</CardGroup>
+
+## Accessing Preferences
+
+<Tabs>
+  <Tab title="Windows/Linux">
+    - **File** > **Options** > **Preferences**
+    - Or press `Ctrl+,`
+  </Tab>
+  <Tab title="macOS">
+    - **GitHub Desktop** > **Preferences**
+    - Or press `Cmd+,`
+  </Tab>
+</Tabs>
+
+## Accounts
+
+### GitHub and GitHub Enterprise
+
+Manage your connected accounts:
+
+<Steps>
+  <Step title="Open Accounts Tab">
+    Click the **Accounts** tab in Preferences
+  </Step>
+  <Step title="Sign In">
+    - **GitHub.com**: Sign in with your GitHub account
+    - **GitHub Enterprise Server**: Add your enterprise server URL
+  </Step>
+  <Step title="Authorize">
+    Complete OAuth authorization in your browser
+  </Step>
+  <Step title="Multiple Accounts">
+    You can connect both GitHub.com and Enterprise accounts
+  </Step>
+</Steps>
+
+**What You Can Do:**
+- Clone repositories you have access to
+- Create pull requests
+- View CI/CD status
+- Access organization repositories
+
+**Sign Out:**
+- Click **Sign out** next to the account
+- Removes OAuth token
+- Clears account access
+
+## Appearance
+
+### Theme Selection
+
+<Tabs>
+  <Tab title="Light">
+    Bright theme optimized for daylight viewing:
+    - High contrast
+    - Easy to read in bright environments
+    - Traditional appearance
+  </Tab>
+  <Tab title="Dark">
+    Dark theme for reduced eye strain:
+    - Low light friendly
+    - Reduces screen brightness
+    - Modern appearance
+  </Tab>
+  <Tab title="System">
+    Automatically matches your OS theme:
+    - Switches based on system settings
+    - Adapts to time of day (if OS supports)
+    - Seamless with OS appearance
+  </Tab>
+</Tabs>
+
+### Application Theme Implementation
+
+```typescript
+// From app/src/ui/lib/application-theme.ts
+export enum ApplicationTheme {
+  Light = 'light',
+  Dark = 'dark',
+  System = 'system',
+}
+
+export type ApplicableTheme = 'light' | 'dark'
+
+// Determines which theme to apply
+function getApplicableTheme(
+  theme: ApplicationTheme,
+  systemTheme: ApplicableTheme
+): ApplicableTheme {
+  if (theme === ApplicationTheme.System) {
+    return systemTheme
+  }
+  return theme === ApplicationTheme.Light ? 'light' : 'dark'
+}
+```
+
+## Git Configuration
+
+### User Identity
+
+Set your name and email for commits:
+
+<Steps>
+  <Step title="Open Git Tab">
+    Click the **Git** tab in Preferences
+  </Step>
+  <Step title="Enter Name">
+    Your full name (appears in commit history)
+  </Step>
+  <Step title="Enter Email">
+    Email address (used for commit attribution)
+  </Step>
+  <Step title="Save">
+    Changes apply to all new repositories
+  </Step>
+</Steps>
+
+<Info>
+These settings configure your global Git identity using `git config --global user.name` and `git config --global user.email`.
+</Info>
+
+**Per-Repository Configuration:**
+- Right-click repository > **Repository Settings**
+- Override global settings for specific repositories
+- Useful for work vs. personal projects
+
+### Default Branch Name
+
+Set the name for new repository default branches:
+
+- `main` (GitHub standard)
+- `master` (traditional default)
+- Custom name of your choice
+
+This configures `git config --global init.defaultBranch`.
+
+### Commit Behavior
+
+<Accordion title="Amend Last Commit">
+  Enable quick amending of the most recent commit:
+  - Shows checkbox in commit message area
+  - Allows adding files to last commit
+  - Can edit commit message
+  
+  <Warning>
+  Never amend commits that have been pushed to shared branches.
+  </Warning>
+</Accordion>
+
+<Accordion title="GPG Signing">
+  Sign commits with GPG keys:
+  - Requires GPG setup on your system
+  - Configure key in Git config
+  - Adds verification to commits
+  
+  Setup:
+  ```bash
+  git config --global user.signingkey <key-id>
+  git config --global commit.gpgsign true
+  ```
+</Accordion>
+
+<Accordion title="Line Ending Conversion">
+  How Git handles line endings:
+  - **Windows**: `core.autocrlf = true`
+  - **macOS/Linux**: `core.autocrlf = input`
+  
+  Prevents cross-platform line ending issues.
+</Accordion>
+
+## Integrations
+
+### External Editor
+
+Set your preferred code editor:
+
+**Supported Editors:**
+- Visual Studio Code
+- Visual Studio Code - Insiders
+- Atom
+- Sublime Text
+- Visual Studio
+- Notepad++
+- TextMate (macOS)
+- Brackets
+- Typora
+- SlickEdit
+- IntelliJ IDEA
+- WebStorm
+- PhpStorm
+- PyCharm
+- RubyMine
+- GoLand
+- Rider
+- Android Studio
+- Nova (macOS)
+
+<Steps>
+  <Step title="Open Integrations Tab">
+    Click **Integrations** in Preferences
+  </Step>
+  <Step title="Select Editor">
+    Choose your editor from the dropdown
+  </Step>
+  <Step title="Install if Needed">
+    GitHub Desktop auto-detects installed editors
+  </Step>
+</Steps>
+
+**Usage:**
+- Click **Repository** > **Open in [Editor]**
+- Or press `Ctrl+Shift+A` (Windows/Linux) / `Cmd+Shift+A` (macOS)
+- Right-click files > **Open in [Editor]**
+
+### Terminal/Shell
+
+Set your preferred terminal application:
+
+**Built-in Options:**
+
+<Tabs>
+  <Tab title="Windows">
+    - Command Prompt
+    - PowerShell
+    - PowerShell Core
+    - Git Bash
+    - Windows Terminal
+  </Tab>
+  <Tab title="macOS">
+    - Terminal
+    - iTerm2
+    - Hyper
+    - Alacritty
+    - Kitty
+  </Tab>
+  <Tab title="Linux">
+    - GNOME Terminal
+    - Konsole
+    - XTerm
+    - Alacritty
+    - Tilix
+  </Tab>
+</Tabs>
+
+**Custom Shell:**
+You can configure a custom shell executable if your preferred terminal isn't listed.
+
+**Usage:**
+- Click **Repository** > **Open in Terminal**
+- Or press ``Ctrl+` `` (Windows/Linux) / ``Cmd+` `` (macOS)
+- Terminal opens in repository directory
+
+### Shell Configuration
+
+GitHub Desktop can be configured to use a specific shell:
+
+```bash
+# Set custom shell (example)
+gh config set shell /bin/zsh
+```
+
+Shell integration provides:
+- Repository path automatically set
+- Git environment configured
+- Immediate access to `git` commands
+
+## Advanced Settings
+
+### Proxy Configuration
+
+GitHub Desktop automatically detects system proxy settings, but you can configure manually:
+
+<Steps>
+  <Step title="Open Advanced Tab">
+    Click **Advanced** in Preferences
+  </Step>
+  <Step title="Configure Proxy">
+    - GitHub Desktop uses system proxy by default
+    - For manual config, set environment variables
+    - Or configure in Git: `git config --global http.proxy`
+  </Step>
+</Steps>
+
+See [Proxies](/configuration/proxies) for detailed information.
+
+### Repository Storage Location
+
+Set default directory for cloned repositories:
+
+- Click **Change** next to "Default clone directory"
+- Select a folder on your computer
+- Future clones default to this location
+- Can be overridden per-clone
+
+<Tip>
+Choose a location that's:
+- Easy to find
+- Has adequate storage
+- Is regularly backed up
+- Not in cloud sync folders (Dropbox, OneDrive)
+</Tip>
+
+### Confirmation Dialogs
+
+Control which confirmation dialogs appear:
+
+<Accordion title="Force Push Warning">
+  **Show confirmation dialog before force pushing** (Recommended)
+  
+  When enabled:
+  - Warns about force push impact
+  - Explains history rewriting
+  - Asks for confirmation
+  
+  When disabled:
+  - Force push happens immediately
+  - Higher risk of mistakes
+</Accordion>
+
+<Accordion title="Discard Changes Warning">
+  **Show confirmation dialog before discarding changes**
+  
+  When enabled:
+  - Warns that changes cannot be recovered
+  - Lists files that will be discarded
+  - Requires confirmation
+  
+  When disabled:
+  - Discard happens immediately
+  - Easy to lose work accidentally
+</Accordion>
+
+<Accordion title="Large File Warning">
+  **Show warning when committing large files**
+  
+  When enabled:
+  - Warns about files over 50MB
+  - Suggests using Git LFS
+  - Asks for confirmation
+  
+  When disabled:
+  - Large files committed without warning
+  - Can bloat repository
+</Accordion>
+
+### Background Operations
+
+<Accordion title="Automatic Fetch">
+  **Periodically fetch from remotes**
+  
+  When enabled:
+  - Fetches every few minutes
+  - Keeps remote tracking branches updated
+  - Shows new commits and PRs
+  
+  When disabled:
+  - Must manually fetch
+  - Remote info may be stale
+  
+  Interval: Configurable (default: 3 minutes)
+</Accordion>
+
+<Accordion title="Prune on Fetch">
+  **Prune remote branches on fetch**
+  
+  When enabled:
+  - Removes remote-tracking branches that no longer exist
+  - Keeps branch list clean
+  - Equivalent to `git fetch --prune`
+  
+  When disabled:
+  - Deleted remote branches remain in list
+  - Must manually prune
+</Accordion>
+
+### Diff Display
+
+Configure how diffs are shown:
+
+- **Context lines**: Number of unchanged lines around changes
+- **Whitespace**: How to handle whitespace differences
+  - Show all changes
+  - Ignore whitespace at end of lines  
+  - Ignore all whitespace changes
+- **Word diff**: Highlight changed words, not just lines
+- **Syntax highlighting**: Enable/disable code highlighting
+
+### Experimental Features
+
+Enable beta features:
+
+<Warning>
+Experimental features may be unstable or change without notice. Use with caution in production workflows.
+</Warning>
+
+**Examples:**
+- New UI components
+- Enhanced diff algorithms
+- Experimental Git features
+- Beta integrations
+
+Check GitHub Desktop release notes for available experiments.
+
+## Preference Storage
+
+Preferences are stored locally:
+
+### Configuration Files
+
+<Tabs>
+  <Tab title="Windows">
+    ```
+    %APPDATA%\GitHub Desktop\
+    ```
+    
+    Settings stored in JSON and SQLite databases.
+  </Tab>
+  <Tab title="macOS">
+    ```
+    ~/Library/Application Support/GitHub Desktop/
+    ```
+    
+    Settings use macOS user defaults and JSON files.
+  </Tab>
+  <Tab title="Linux">
+    ```
+    ~/.config/GitHub Desktop/
+    ```
+    
+    Settings stored in JSON configuration files.
+  </Tab>
+</Tabs>
+
+### App State
+
+GitHub Desktop stores:
+- Repository list
+- Window size/position
+- Selected repository
+- Recent file selections
+- UI state (expanded sections, etc.)
+
+### Resetting Preferences
+
+To reset all settings:
+
+1. Quit GitHub Desktop
+2. Delete the configuration directory
+3. Restart GitHub Desktop
+4. Reconfigure preferences
+
+<Warning>
+Resetting preferences removes all settings and account connections. You'll need to sign in again and reconfigure everything.
+</Warning>
+
+## Keyboard Shortcuts
+
+### General
+
+| Action | Windows/Linux | macOS |
+|--------|--------------|-------|
+| Preferences | `Ctrl+,` | `Cmd+,` |
+| Hide window | `Ctrl+W` | `Cmd+W` |
+| Quit | `Ctrl+Q` | `Cmd+Q` |
+| Toggle full screen | `F11` | `Ctrl+Cmd+F` |
+
+### View Shortcuts
+
+Configure additional keyboard shortcuts in Preferences > **Shortcuts** (if available in your version).
+
+## Best Practices
+
+<Tip>
+**Keep your email address private**: GitHub offers a no-reply email address (e.g., `username@users.noreply.github.com`) to keep your personal email private.
+</Tip>
+
+1. **Use Consistent Identity**
+   - Same name/email across all repositories
+   - Helps with commit attribution
+   - Easier to track contributions
+
+2. **Enable Confirmations**
+   - Keep dangerous action warnings on
+   - Prevents accidental data loss
+   - Small inconvenience, big safety
+
+3. **Choose Tools Wisely**
+   - Pick editor you're comfortable with
+   - Configure terminal you know
+   - Integrations save time
+
+4. **Update Regularly**
+   - Keep GitHub Desktop up to date
+   - New features and fixes
+   - Better performance
+
+5. **Backup Configuration**
+   - Export or document your settings
+   - Makes reinstall easier
+   - Share setup across machines
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Preferences Not Saving">
+    If preferences don't persist:
+    - Check file permissions on config directory
+    - Ensure disk has space
+    - Try running as administrator (Windows)
+    - Check for antivirus interference
+  </Accordion>
+  
+  <Accordion title="Editor Not Detected">
+    If your editor doesn't appear:
+    - Reinstall the editor
+    - Check installation path
+    - Try restarting GitHub Desktop
+    - Select "Other" and browse to executable
+  </Accordion>
+  
+  <Accordion title="Theme Not Applying">
+    If theme changes don't work:
+    - Restart GitHub Desktop
+    - Check OS theme settings (for System theme)
+    - Try a different theme
+    - Check for app updates
+  </Accordion>
+  
+  <Accordion title="Git Identity Not Working">
+    If commits show wrong author:
+    - Check global Git config: `git config --global user.name`
+    - Verify email: `git config --global user.email`
+    - Check repository-specific config: `git config user.name`
+    - Ensure no typos in email address
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+- [Git Configuration](/configuration/git-config)
+- [Authentication](/configuration/authentication)
+- [Proxies](/configuration/proxies)
+- [Repository Management](/features/repository-management)

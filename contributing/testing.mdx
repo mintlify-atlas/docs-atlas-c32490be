@@ -1,0 +1,310 @@
+---
+title: Testing GitHub Desktop
+description: Guide to running tests and writing new tests for GitHub Desktop
+---
+
+## Test Suite Overview
+
+GitHub Desktop uses Node.js's built-in test runner for unit tests. Tests are organized under `app/test/` with the following structure:
+
+- **`unit/`** - Unit tests for individual modules and functions
+- **`integration/`** - End-to-end tests using UI automation
+- **`fixtures/`** - Git repositories and test data
+- **`helpers/`** - Shared test utilities and setup code
+
+## Running Tests
+
+### Run All Tests
+
+<CodeGroup>
+```bash yarn
+yarn test
+```
+
+```bash npm
+npm test
+```
+</CodeGroup>
+
+This runs all unit tests by default (equivalent to `yarn test:unit`).
+
+### Unit Tests
+
+Run all unit tests:
+
+<CodeGroup>
+```bash yarn
+yarn test:unit
+```
+
+```bash npm
+npm run test:unit
+```
+</CodeGroup>
+
+### Specific Test Files
+
+Run tests in a specific file:
+
+<CodeGroup>
+```bash yarn
+yarn test:unit app/test/unit/git/commit-test.ts
+```
+
+```bash npm
+npm run test:unit app/test/unit/git/commit-test.ts
+```
+</CodeGroup>
+
+### Specific Test Directory
+
+Run all tests in a directory:
+
+<CodeGroup>
+```bash yarn
+yarn test:unit app/test/unit/git
+```
+
+```bash npm
+npm run test:unit app/test/unit/git
+```
+</CodeGroup>
+
+### Filter by Test Name
+
+Run tests matching a specific pattern:
+
+<CodeGroup>
+```bash yarn
+yarn test:unit --test-name-pattern "parse commit"
+```
+
+```bash npm
+npm run test:unit -- --test-name-pattern "parse commit"
+```
+</CodeGroup>
+
+<Note>
+For more test runner options, see the [Node.js test runner documentation](https://nodejs.org/api/test.html).
+</Note>
+
+### ESLint Tests
+
+Run tests for custom ESLint rules:
+
+<CodeGroup>
+```bash yarn
+yarn test:eslint
+```
+
+```bash npm
+npm run test:eslint
+```
+</CodeGroup>
+
+### Script Tests
+
+Run tests for build scripts:
+
+<CodeGroup>
+```bash yarn
+yarn test:script
+```
+
+```bash npm
+npm run test:script
+```
+</CodeGroup>
+
+## Writing Unit Tests
+
+### Creating a New Test Module
+
+<Steps>
+  <Step title="Create Test File">
+    Create a file named `[module-name]-test.ts` in the appropriate directory under `app/test/unit/`:
+    
+    ```typescript
+    describe('module being tested', () => {
+      it('can test some code', () => {
+        expect(true).toBe(true)
+      })
+    })
+    ```
+  </Step>
+
+  <Step title="Run the Test">
+    Verify your test file is recognized:
+    
+    ```bash
+    yarn test:unit app/test/unit/your-module-test.ts
+    ```
+  </Step>
+
+  <Step title="Write Real Tests">
+    Replace the placeholder test with actual test cases for your module.
+  </Step>
+</Steps>
+
+### Test Structure
+
+Follow the **Arrange-Act-Assert** pattern:
+
+```typescript
+import { parseCommit } from '../../../src/lib/git/commit'
+
+describe('parseCommit', () => {
+  it('parses a simple commit message', () => {
+    // Arrange - Set up test data
+    const message = 'Fix bug in parser'
+    
+    // Act - Execute the function
+    const result = parseCommit(message)
+    
+    // Assert - Check the results
+    expect(result.summary).toBe('Fix bug in parser')
+    expect(result.description).toBeNull()
+  })
+  
+  it('parses commit with description', () => {
+    const message = 'Fix bug in parser\n\nThis fixes issue #123'
+    const result = parseCommit(message)
+    
+    expect(result.summary).toBe('Fix bug in parser')
+    expect(result.description).toBe('This fixes issue #123')
+  })
+})
+```
+
+### Best Practices
+
+<Note>
+**Keep tests focused**: Each test should verify one specific behavior or scenario.
+</Note>
+
+- **Test module organization**: Match the directory structure of `app/src/`
+- **Descriptive test names**: Use clear, readable descriptions
+- **Test edge cases**: Cover error conditions and boundary cases
+- **Avoid complexity**: If tests are complex, consider refactoring the code
+- **No code comments needed**: Tests should be self-documenting
+
+### Example: Testing Pure Functions
+
+```typescript
+import { updateChangedFiles } from '../../../src/lib/stores/updates/changes-state'
+
+describe('updateChangedFiles', () => {
+  it('preserves selection when files are unchanged', () => {
+    const state = {
+      workingDirectory: createTestWorkingDirectory(),
+      selectedFileIDs: ['file1.ts'],
+      diff: null
+    }
+    const status = createTestStatus()
+    
+    const result = updateChangedFiles(state, status, false)
+    
+    expect(result.selectedFileIDs).toEqual(['file1.ts'])
+  })
+  
+  it('clears selection when files are removed', () => {
+    const state = {
+      workingDirectory: createTestWorkingDirectory(['file1.ts']),
+      selectedFileIDs: ['file1.ts'],
+      diff: null
+    }
+    const status = createTestStatus([]) // No files
+    
+    const result = updateChangedFiles(state, status, false)
+    
+    expect(result.selectedFileIDs).toEqual([])
+  })
+})
+```
+
+## Testing State Updates
+
+When testing complex state logic in `AppStore`:
+
+1. **Extract logic to pure functions** outside of `AppStore`
+2. **Take current state as a parameter** instead of reading implicit state
+3. **Return new state** rather than mutating existing state
+4. **Test the extracted function** in isolation
+
+### Example Pattern
+
+```typescript
+// ✅ Good: Pure function that's easy to test
+export function updateChangedFiles(
+  state: IChangesState,
+  status: IStatusResult,
+  clearPartialState: boolean
+): ChangedFilesResult {
+  // Pure logic here
+  return {
+    workingDirectory: newWorkingDirectory,
+    selectedFileIDs: newSelection,
+    diff: newDiff
+  }
+}
+
+// In AppStore:
+this.repositoryStateCache.updateChangesState(repository, state =>
+  updateChangedFiles(state, status, clearPartialState)
+)
+```
+
+See [`app/src/lib/stores/updates/changes-state.ts`](https://github.com/desktop/desktop/blob/development/app/src/lib/stores/updates/changes-state.ts) for a complete example.
+
+## Test Setup
+
+Run test setup scripts:
+
+<CodeGroup>
+```bash yarn
+yarn test:setup
+```
+
+```bash npm
+npm run test:setup
+```
+</CodeGroup>
+
+This initializes test fixtures and prepares the test environment.
+
+## Continuous Integration
+
+All tests run automatically on pull requests. Ensure your tests pass locally before pushing:
+
+```bash
+yarn test
+```
+
+<Warning>
+Pull requests must pass all tests before they can be merged.
+</Warning>
+
+## Test Fixtures
+
+Test fixtures are located in `app/test/fixtures/` and include:
+
+- Sample Git repositories
+- Test data files
+- Mock configurations
+
+When adding tests that require Git repositories, reuse existing fixtures or create new ones in this directory.
+
+## Debugging Tests
+
+To debug a failing test:
+
+1. **Run the specific test** with the file path
+2. **Add console.log statements** to inspect values
+3. **Use Node.js debugger** with `--inspect` flag
+4. **Check test isolation** - ensure tests don't depend on each other
+
+## Next Steps
+
+- Learn about [Linting](/contributing/linting)
+- Set up [Development Tools](/contributing/tooling)
+- Review [Building](/contributing/building) instructions

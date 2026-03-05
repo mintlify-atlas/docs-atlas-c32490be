@@ -1,0 +1,496 @@
+---
+title: "Proxies"
+description: "Configure proxy settings for Git operations in GitHub Desktop"
+---
+
+## Overview
+
+GitHub Desktop automatically detects and uses your system proxy settings for Git network operations. This ensures Git commands work seamlessly in corporate environments and restricted networks.
+
+<CardGroup cols={2}>
+  <Card title="Automatic Detection" icon="wand-magic-sparkles">
+    Automatically uses system proxy configuration
+  </Card>
+  <Card title="PAC Support" icon="file-code">
+    Resolves Proxy Auto-Configuration (PAC) scripts
+  </Card>
+  <Card title="Git Integration" icon="git">
+    Sets appropriate environment variables for Git
+  </Card>
+  <Card title="MITM Compatibility" icon="shield-halved">
+    Handles SSL-intercepting proxies on Windows
+  </Card>
+</CardGroup>
+
+## How Proxy Support Works
+
+GitHub Desktop uses a two-part approach for network operations:
+
+### Chromium Network Stack
+
+**For GitHub API Requests:**
+- Sign-in authentication
+- Fetching repository lists
+- Pull request information
+- Issue data
+
+**Proxy Behavior:**
+- Automatically uses system proxy
+- No configuration needed
+- Transparent to the user
+
+### Git/libcurl
+
+**For Git Operations:**
+- `git clone`
+- `git push`
+- `git pull`
+- `git fetch`
+
+**Proxy Behavior:**
+- Requires manual configuration
+- GitHub Desktop auto-configures via environment variables
+- Uses system proxy resolution
+
+<Info>
+Git itself doesn't automatically detect system proxies, which is why GitHub Desktop bridges this gap by setting the appropriate environment variables.
+</Info>
+
+## Automatic Proxy Configuration
+
+GitHub Desktop automatically configures Git proxy settings when performing network operations:
+
+### Proxy Resolution Flow
+
+<Steps>
+  <Step title="Determine Remote Endpoint">
+    Identify the URL for the Git operation (e.g., `https://github.com`)
+  </Step>
+  <Step title="Check for Manual Config">
+    Verify user hasn't set `http_proxy`, `https_proxy`, or `all_proxy` environment variables
+  </Step>
+  <Step title="Ask Electron to Resolve">
+    Use Electron's proxy resolution to get the proxy for the URL
+  </Step>
+  <Step title="Parse PAC String">
+    Parse the Proxy Auto-Configuration string returned
+  </Step>
+  <Step title="Set Environment Variables">
+    Set `http_proxy` or `https_proxy` for Git to use
+  </Step>
+</Steps>
+
+From the technical documentation:
+
+```typescript
+// 1. Check for existing environment variables
+const hasManualProxy = 
+  process.env.http_proxy ||
+  process.env.https_proxy ||
+  process.env.all_proxy ||
+  process.env.HTTP_PROXY ||
+  process.env.HTTPS_PROXY ||
+  process.env.ALL_PROXY
+
+if (hasManualProxy) {
+  // Don't override user's manual configuration
+  return {}
+}
+
+// 2. Resolve proxy for the URL
+const pacString = await session.defaultSession.resolveProxy(url)
+
+// 3. Parse the PAC string
+const proxy = parsePacString(pacString)
+
+// 4. Set appropriate environment variable
+if (proxy) {
+  return {
+    http_proxy: proxy,   // for http:// URLs
+    https_proxy: proxy,  // for https:// URLs
+  }
+}
+```
+
+### PAC String Parsing
+
+Proxy Auto-Configuration (PAC) responses can be:
+
+```javascript
+// Direct connection (no proxy)
+"DIRECT"
+
+// Single proxy
+"PROXY proxy.example.com:8080"
+
+// SOCKS proxy
+"SOCKS5 socks.example.com:1080"
+
+// Multiple options (tries in order)
+"PROXY proxy1.example.com:8080; PROXY proxy2.example.com:8080; DIRECT"
+```
+
+GitHub Desktop parses these and extracts the first usable proxy.
+
+## Proxy Environment Variables
+
+### Standard Environment Variables
+
+Git recognizes these environment variables:
+
+```bash
+# HTTP proxy
+http_proxy=http://proxy.example.com:8080
+HTTP_PROXY=http://proxy.example.com:8080
+
+# HTTPS proxy  
+https_proxy=http://proxy.example.com:8080
+HTTPS_PROXY=http://proxy.example.com:8080
+
+# All protocols
+all_proxy=http://proxy.example.com:8080
+ALL_PROXY=http://proxy.example.com:8080
+
+# No proxy for certain domains
+no_proxy=localhost,127.0.0.1,.example.com
+NO_PROXY=localhost,127.0.0.1,.example.com
+```
+
+<Info>
+Both lowercase and uppercase versions are checked. Lowercase takes precedence.
+</Info>
+
+### Proxy URL Formats
+
+```bash
+# HTTP proxy (most common)
+http://proxy.example.com:8080
+
+# With authentication
+http://username:password@proxy.example.com:8080
+
+# SOCKS4
+socks4://proxy.example.com:1080
+
+# SOCKS5
+socks5://proxy.example.com:1080
+```
+
+<Warning>
+HTTPS proxies (`https://proxy...`) are not supported in the version of Git/libcurl shipped with GitHub Desktop on Windows.
+</Warning>
+
+## Git Configuration
+
+Alternatively, configure proxy in Git config:
+
+```bash
+# Global proxy for all HTTP(S) operations
+git config --global http.proxy http://proxy.example.com:8080
+
+# Proxy for specific domain
+git config --global http.https://github.com.proxy http://proxy.example.com:8080
+
+# No proxy for specific domain
+git config --global http.https://internal.company.com.proxy ""
+
+# Remove proxy setting
+git config --global --unset http.proxy
+```
+
+<Info>
+Git config `http.proxy` takes precedence over environment variables. GitHub Desktop uses environment variables to avoid overriding user's Git config.
+</Info>
+
+## HTTPS vs. http_proxy
+
+Understanding the difference:
+
+### The `https_proxy` Variable
+
+**Specifies:** Which proxy to use when connecting to HTTPS URLs
+
+**Example:**
+```bash
+https_proxy=http://proxy.local:8080
+```
+
+This tells Git:
+- "When connecting to `https://github.com`..."
+- "...use the HTTP proxy at `http://proxy.local:8080`"
+
+Note: The proxy itself uses HTTP (not HTTPS), but it's for HTTPS destinations.
+
+### HTTPS Proxies
+
+**Rare scenario:**
+```bash
+http_proxy=https://proxy.local:8080
+```
+
+This means:
+- Connect to the proxy using HTTPS
+- Very uncommon
+- Not supported by Git on Windows
+
+```bash
+# This will fail on Windows:
+$ git -c http.proxy=https://localhost:8888 ls-remote https://github.com/user/repo
+fatal: unable to access: Unsupported proxy 'localhost:8888', 
+       libcurl is built without the HTTPS-proxy support.
+```
+
+## Windows: Certificate Revocation
+
+### The Problem
+
+On Windows, Git uses the `schannel` SSL backend, which:
+- Checks certificate revocation lists (CRL)
+- Throws errors if CRL check fails
+- Common with MITM (SSL-intercepting) proxies
+
+**Error Message:**
+```
+fatal: unable to access 'https://github.com/...': 
+schannel: failed to receive handshake, SSL/TLS connection failed
+```
+
+### MITM Proxies
+
+Some corporate proxies intercept HTTPS:
+1. Proxy issues its own "fake" certificate
+2. Certificate doesn't include CRL distribution points
+3. Windows schannel can't check revocation
+4. Connection fails
+
+### Solution
+
+Disable certificate revocation checks:
+
+```bash
+git config --global http.schannelCheckRevoke false
+```
+
+<Warning>
+Disabling revocation checks reduces security. Only do this in environments with MITM proxies where it's required.
+</Warning>
+
+### GitHub Desktop's Approach
+
+From the technical docs:
+
+> #9188 detects this specific error and allows the user to disable revocation checks. **Note: the toggle to turn this setting on or off in the options dialog is hidden unless this condition has been encountered before**
+
+GitHub Desktop:
+1. Detects the schannel revocation error
+2. Shows a dialog explaining the issue
+3. Offers to disable revocation checks
+4. Only shows the setting after encountering the error
+
+## Debugging Proxy Issues
+
+### Check Electron's Proxy Resolution
+
+In GitHub Desktop's developer console (`Ctrl+Shift+I` or `Cmd+Option+I`):
+
+```javascript
+// Check proxy for a URL
+require('electron').remote.session.defaultSession
+  .resolveProxy('https://github.com')
+  .then(console.log)
+
+// Output examples:
+// "DIRECT" - no proxy
+// "PROXY proxy.company.com:8080" - HTTP proxy
+// "SOCKS5 socks.company.com:1080" - SOCKS proxy
+```
+
+### Check Environment Variables
+
+In the developer console:
+
+```javascript
+// List all proxy-related environment variables
+Object.keys(process.env)
+  .filter(k => /proxy/i.test(k))
+  .map(k => `${k}=${process.env[k]}`)
+```
+
+### Check Git Configuration
+
+```bash
+# View proxy settings
+git config --get http.proxy
+git config --get https.proxy
+
+# View all HTTP-related config
+git config --get-regexp http
+
+# Note: blank http.proxy will override environment variables
+git config --global --unset http.proxy  # Remove if blank
+```
+
+<Tip>
+A blank `http.proxy` config value (even if empty) will prevent GitHub Desktop's automatic proxy from working. Remove it with `git config --global --unset http.proxy`.
+</Tip>
+
+### Test Git with Proxy
+
+```bash
+# Test with environment variable
+http_proxy=http://proxy:8080 git ls-remote https://github.com/desktop/desktop
+
+# Test with Git config
+git -c http.proxy=http://proxy:8080 ls-remote https://github.com/desktop/desktop
+```
+
+## Manual Proxy Configuration
+
+### Setting Environment Variables
+
+<Tabs>
+  <Tab title="Windows">
+    **Temporary (current session):**
+    ```cmd
+    set http_proxy=http://proxy.example.com:8080
+    set https_proxy=http://proxy.example.com:8080
+    ```
+    
+    **Permanent (system-wide):**
+    1. Open System Properties
+    2. Advanced > Environment Variables
+    3. Add `http_proxy` and `https_proxy`
+    4. Restart GitHub Desktop
+  </Tab>
+  
+  <Tab title="macOS/Linux">
+    **Temporary (current session):**
+    ```bash
+    export http_proxy=http://proxy.example.com:8080
+    export https_proxy=http://proxy.example.com:8080
+    ```
+    
+    **Permanent:**
+    
+    Add to `~/.bashrc`, `~/.zshrc`, or `~/.profile`:
+    ```bash
+    export http_proxy=http://proxy.example.com:8080
+    export https_proxy=http://proxy.example.com:8080
+    export no_proxy=localhost,127.0.0.1
+    ```
+    
+    Reload:
+    ```bash
+    source ~/.bashrc  # or ~/.zshrc
+    ```
+  </Tab>
+</Tabs>
+
+### Git Configuration Method
+
+```bash
+# Set global proxy
+git config --global http.proxy http://proxy.example.com:8080
+
+# Set for GitHub only
+git config --global http.https://github.com.proxy http://proxy.example.com:8080
+
+# Set for a single repository
+cd /path/to/repo
+git config http.proxy http://proxy.example.com:8080
+```
+
+## Authenticating Proxies
+
+### Credentials in URL
+
+```bash
+http_proxy=http://username:password@proxy.example.com:8080
+```
+
+<Warning>
+Embedding credentials in environment variables or Git config can be a security risk. They may be visible in process lists or config files.
+</Warning>
+
+### Future Support
+
+From the technical docs:
+
+> A stretch goal for the proxy support was supporting authenticating proxies. That unfortunately didn't make it in. Worth noting here is that not even Electron supports authenticating proxies out of the box...
+
+Currently, GitHub Desktop does not have built-in support for proxies requiring authentication beyond embedding credentials in the URL.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Git Operations Fail, API Works">
+    If you can sign in but can't clone/push/pull:
+    
+    - API uses Chromium (auto proxy)
+    - Git uses libcurl (needs configuration)
+    - Check if environment variables are set
+    - Verify Git config doesn't have blank `http.proxy`
+    - Try manual proxy configuration
+  </Accordion>
+  
+  <Accordion title="Certificate Errors (Windows)">
+    If you see SSL/TLS handshake errors:
+    
+    - Likely a MITM proxy
+    - Try: `git config --global http.schannelCheckRevoke false`
+    - Check with IT about the proxy's certificate
+    - Ensure proxy's CA certificate is trusted
+  </Accordion>
+  
+  <Accordion title="Proxy Works for Some, Not Others">
+    If proxy works differently for different repos:
+    
+    - Check repository-specific Git config
+    - Look for `.git/config` with proxy settings
+    - Verify remote URLs (SSH vs HTTPS)
+    - SSH connections don't use HTTP proxy
+  </Accordion>
+  
+  <Accordion title="Performance is Slow">
+    If operations are slower than expected:
+    
+    - Proxy resolution might be slow
+    - PAC file might be complex
+    - Try setting explicit environment variables
+    - Contact IT about proxy performance
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+1. **Let GitHub Desktop Handle It**
+   - Use automatic proxy detection when possible
+   - Only manually configure if automatic fails
+   - Don't set environment variables unless needed
+
+2. **Use HTTPS, Not SSH**
+   - HTTPS works through most proxies
+   - SSH often blocked by corporate firewalls
+   - Clone with HTTPS URLs when behind proxy
+
+3. **Document Your Setup**
+   - Keep notes on proxy configuration
+   - Share with team members
+   - Include in onboarding docs
+
+4. **Secure Credentials**
+   - Avoid embedding passwords in config
+   - Use credential managers when possible
+   - Check with IT for best practices
+
+5. **Test Regularly**
+   - Verify proxy still works after updates
+   - Test different network locations
+   - Confirm with IT on configuration changes
+
+## Related Topics
+
+- [Authentication](/configuration/authentication)
+- [Git Configuration](/configuration/git-config)
+- [Preferences](/configuration/preferences)
+- [Repository Management](/features/repository-management)

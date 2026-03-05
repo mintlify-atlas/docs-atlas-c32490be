@@ -1,0 +1,382 @@
+---
+title: External Editor Integration
+description: Configure and use external code editors with GitHub Desktop across Windows, macOS, and Linux
+---
+
+GitHub Desktop supports launching your favorite external editor to work with repository files. Editors can be launched from the top-level **Repository** menu or by right-clicking a repository in the sidebar.
+
+## Requirements
+
+For an editor to be supported by GitHub Desktop, it must satisfy these requirements:
+
+<Steps>
+  <Step title="Directory support">
+    The editor must support opening a directory, not just individual files.
+  </Step>
+
+  <Step title="Discoverable installation">
+    The editor must be installed in a reliable, discoverable location on the user's machine.
+  </Step>
+
+  <Step title="Command-line interface">
+    The editor must provide a command-line interface that GitHub Desktop can launch.
+  </Step>
+</Steps>
+
+## Supported Editors
+
+### Windows
+
+GitHub Desktop supports these editors on Windows:
+
+- **Atom** (Stable, Beta, and Nightly)
+- **Visual Studio Code** (Stable and Insiders)
+- **VSCodium**
+- **Sublime Text**
+- **Notepad++**
+- **Typora**
+- **SlickEdit**
+- **Brackets**
+- **JetBrains IDEs**:
+  - IntelliJ IDEA
+  - WebStorm
+  - PhpStorm
+  - PyCharm
+  - RubyMine
+  - CLion
+  - GoLand
+  - RustRover
+  - Fleet
+  - DataSpell
+- **Android Studio**
+- **RStudio**
+- **Aptana Studio**
+- **ColdFusion Builder**
+- **Zed** (Stable and Preview)
+- **Pulsar**
+- **Cursor**
+- **Windsurf**
+
+### macOS
+
+Supported editors on macOS include:
+
+- **Atom**
+- **Visual Studio Code** (Stable and Insiders)
+- **VSCodium**
+- **Sublime Text**
+- **BBEdit**
+- **TextMate**
+- **Brackets**
+- **MacVim**
+- **Neovide**
+- **VimR**
+- **Typora**
+- **CodeRunner**
+- **SlickEdit**
+- **Xcode**
+- **Emacs**
+- **Nova**
+- **Lite XL**
+- **JetBrains IDEs** (All major IDEs)
+- **Android Studio**
+- **RStudio**
+- **Aptana Studio**
+- **Eclipse** (All IDE variants)
+- **Pulsar**
+- **Cursor**
+- **Zed**
+
+### Linux
+
+Linux users can use these editors:
+
+- **Atom**
+- **Visual Studio Code** (Stable and Insiders)
+- **VSCodium**
+- **Sublime Text**
+- **Typora**
+- **SlickEdit**
+- **Neovim**
+- **Neovide**
+- **Notepadqq**
+- **Mousepad**
+- **GNOME Builder**
+- **Code** (elementary OS)
+- **Lite XL**
+- **Kate**
+- **Emacs**
+- **Pluma**
+- **JetBrains IDEs** (All major IDEs)
+- **Android Studio**
+- **Pulsar**
+- **Zed**
+
+## How Editor Detection Works
+
+### Windows Registry Lookup
+
+On Windows, GitHub Desktop finds editors using registry keys:
+
+```ts app/src/lib/editors/win32.ts
+const editors: WindowsExternalEditor[] = [
+  {
+    name: 'Visual Studio Code',
+    registryKeys: [
+      // 64-bit version (user scope)
+      CurrentUserUninstallKey('{771FD6B0-FA20-440A-A002-3B3BAC16DC50}_is1'),
+      // 32-bit version (user scope)
+      CurrentUserUninstallKey('{D628A17A-9713-46BF-8D57-E671B46A741E}_is1'),
+      // ARM64 version (user scope)
+      CurrentUserUninstallKey('{D9E514E7-1A56-452D-9337-2990C0DC4310}_is1'),
+      // 64-bit version (system scope)
+      LocalMachineUninstallKey('{EA457B21-F73E-494C-ACAB-524FDE069978}_is1'),
+    ],
+    displayNamePrefix: 'Microsoft Visual Studio Code',
+    publisher: 'Microsoft Corporation',
+    executableShimPaths: [['bin', 'code.cmd']],
+  },
+]
+```
+
+<Note>
+Registry keys are checked in multiple locations:
+- `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall`
+- `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`
+- `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall`
+</Note>
+
+### macOS Bundle Identifiers
+
+On macOS, editors are located using their bundle identifiers:
+
+```ts app/src/lib/editors/darwin.ts
+const editors: IDarwinExternalEditor[] = [
+  {
+    name: 'Visual Studio Code',
+    bundleIdentifiers: ['com.microsoft.VSCode'],
+  },
+  {
+    name: 'Visual Studio Code (Insiders)',
+    bundleIdentifiers: ['com.microsoft.VSCodeInsiders'],
+  },
+  {
+    name: 'Sublime Text',
+    bundleIdentifiers: [
+      'com.sublimetext.4',
+      'com.sublimetext.3',
+      'com.sublimetext.2',
+    ],
+  },
+]
+```
+
+<Tip>
+To find an editor's bundle identifier, run:
+```bash
+defaults read /Applications/YourEditor.app/Contents/Info CFBundleIdentifier
+```
+</Tip>
+
+### Linux Executable Paths
+
+On Linux, GitHub Desktop searches for executables in common installation paths:
+
+```ts app/src/lib/editors/linux.ts
+const editors: ILinuxExternalEditor[] = [
+  {
+    name: 'Visual Studio Code',
+    paths: [
+      '/usr/share/code/bin/code',
+      '/snap/bin/code',
+      '/usr/bin/code',
+    ],
+  },
+  {
+    name: 'Sublime Text',
+    paths: ['/usr/bin/subl'],
+  },
+]
+```
+
+## Launching Editors
+
+The `launchExternalEditor` function handles launching editors across all platforms:
+
+```ts app/src/lib/editors/launch.ts
+export const launchExternalEditor = (
+  fullPath: string,
+  editor: FoundEditor
+) => launchEditor(editor.path, [fullPath], `'${editor.editor}'`, __DARWIN__)
+```
+
+### Launch Process
+
+<Steps>
+  <Step title="Verify editor exists">
+    ```ts
+    const exists = await pathExists(editorPath)
+    if (!exists) {
+      throw new ExternalEditorError(
+        `Could not find executable for ${editorName} at path '${editorPath}'.`,
+        { openPreferences: true }
+      )
+    }
+    ```
+  </Step>
+
+  <Step title="Spawn editor process">
+    ```ts
+    const opts: SpawnOptions = {
+      detached: true,  // Detach from GitHub Desktop
+      stdio: 'ignore', // Don't capture output
+    }
+
+    const child = spawnAsDarwinApp
+      ? spawn('open', ['-a', editorPath, ...args], opts)
+      : spawn(editorPath, args, opts)
+
+    child.unref() // Don't wait for editor to exit
+    ```
+  </Step>
+
+  <Step title="Handle errors">
+    ```ts
+    child.on('error', reject)
+    child.on('spawn', resolve)
+    ```
+  </Step>
+</Steps>
+
+<Note>
+Editors are spawned as detached processes so they continue running even if GitHub Desktop is closed.
+</Note>
+
+## JetBrains Toolbox Support
+
+GitHub Desktop supports editors installed through JetBrains Toolbox:
+
+```ts
+{
+  name: 'JetBrains PyCharm',
+  registryKeys: [...],
+  jetBrainsToolboxScriptName: 'pycharm',
+}
+```
+
+The integration checks for scripts in the default JetBrains Toolbox scripts directory.
+
+<Tip>
+Only add `jetBrainsToolboxScriptName` to the main edition of a product. JetBrains Toolbox generates scripts with the same name for different editions (Community vs Professional), so only one can be detected reliably.
+</Tip>
+
+## Custom Editor Integration
+
+You can configure custom editors that aren't in the default list:
+
+```ts app/src/lib/editors/launch.ts
+export const launchCustomExternalEditor = (
+  fullPath: string,
+  customEditor: ICustomIntegration
+) => {
+  const argv = parseCustomIntegrationArguments(customEditor.arguments)
+  const args = expandTargetPathArgument(argv, fullPath)
+
+  const spawnAsDarwinApp = __DARWIN__ && customEditor.bundleID !== undefined
+  const editorName = `custom editor at path '${customEditor.path}'`
+
+  return launchEditor(customEditor.path, args, editorName, spawnAsDarwinApp)
+}
+```
+
+### Custom Integration Interface
+
+```ts
+interface ICustomIntegration {
+  path: string           // Path to editor executable
+  arguments: string      // Command-line arguments
+  bundleID?: string      // macOS bundle ID (optional)
+}
+```
+
+## Error Handling
+
+Editor integration includes comprehensive error handling:
+
+<CodeGroup>
+```ts Missing Editor
+throw new ExternalEditorError(
+  `Could not find executable for ${editorName} at path '${editorPath}'.`,
+  { openPreferences: true }
+)
+```
+
+```ts Permission Error
+throw new ExternalEditorError(
+  `GitHub Desktop doesn't have the proper permissions to start ${editorName}.`,
+  { openPreferences: true }
+)
+```
+
+```ts Generic Error
+throw new ExternalEditorError(
+  `Something went wrong while trying to start ${editorName}.`,
+  { openPreferences: true }
+)
+```
+</CodeGroup>
+
+The `openPreferences` flag prompts users to check their editor settings when an error occurs.
+
+## Adding a New Editor
+
+To add support for a new editor, follow these steps:
+
+<Steps>
+  <Step title="Add editor definition">
+    Add an entry to the appropriate platform-specific file:
+    - Windows: `app/src/lib/editors/win32.ts`
+    - macOS: `app/src/lib/editors/darwin.ts`
+    - Linux: `app/src/lib/editors/linux.ts`
+  </Step>
+
+  <Step title="Provide discovery information">
+    **Windows**: Registry keys and validation:
+    ```ts
+    {
+      name: 'My Editor',
+      registryKeys: [CurrentUserUninstallKey('{GUID}')],
+      displayNamePrefix: 'My Editor',
+      publisher: 'My Company',
+      executableShimPaths: [['bin', 'myeditor.exe']],
+    }
+    ```
+
+    **macOS**: Bundle identifier:
+    ```ts
+    {
+      name: 'My Editor',
+      bundleIdentifiers: ['com.example.myeditor'],
+    }
+    ```
+
+    **Linux**: Executable paths:
+    ```ts
+    {
+      name: 'My Editor',
+      paths: ['/usr/bin/myeditor', '/snap/bin/myeditor'],
+    }
+    ```
+  </Step>
+
+  <Step title="Test the integration">
+    1. Install the editor
+    2. Build GitHub Desktop
+    3. Check that the editor appears in Settings
+    4. Test launching the editor with a repository
+  </Step>
+</Steps>
+
+<Card title="Contributing" icon="code-pull-request">
+  Want to add support for your favorite editor? Contributions are welcome! See the [editor integration technical docs](https://github.com/desktop/desktop/blob/development/docs/technical/editor-integration.md) for detailed instructions.
+</Card>

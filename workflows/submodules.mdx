@@ -1,0 +1,550 @@
+---
+title: "Submodules"
+description: "Learn how to work with Git submodules in GitHub Desktop"
+---
+
+## Overview
+
+Git submodules allow you to keep a Git repository as a subdirectory of another Git repository. This lets you clone another repository into your project and keep your commits separate.
+
+<CardGroup cols={2}>
+  <Card title="Nested Repositories" icon="folder-tree">
+    Include external repositories within your project
+  </Card>
+  <Card title="Version Pinning" icon="thumbtack">
+    Lock submodules to specific commits
+  </Card>
+  <Card title="Automatic Updates" icon="arrows-rotate">
+    GitHub Desktop handles submodule updates automatically
+  </Card>
+  <Card title="Recursive Operations" icon="diagram-nested">
+    Clone, pull, and checkout operations include submodules
+  </Card>
+</CardGroup>
+
+## Understanding Submodules
+
+### What are Submodules?
+
+Submodules are Git repositories embedded inside another Git repository:
+
+```
+my-project/
+├── .git/
+├── .gitmodules        # Submodule configuration
+├── src/
+├── docs/
+└── vendor/
+    └── library/       # This is a submodule
+        ├── .git/      # Separate Git repository
+        └── ...
+```
+
+### When to Use Submodules
+
+**Good Use Cases:**
+
+<CardGroup cols={2}>
+  <Card title="External Dependencies" icon="puzzle-piece">
+    Include libraries or frameworks as source
+  </Card>
+  <Card title="Shared Code" icon="code">
+    Share common code between projects
+  </Card>
+  <Card title="Monorepo Components" icon="cubes">
+    Manage separate components with independent histories
+  </Card>
+  <Card title="Version Control" icon="clock-rotate-left">
+    Pin dependencies to specific versions
+  </Card>
+</CardGroup>
+
+**Alternatives to Consider:**
+- Package managers (npm, pip, Maven) for dependencies
+- Mono-repo tools (Lerna, Nx) for related projects
+- Git subtrees for simpler embedding
+
+## Submodule Configuration
+
+### .gitmodules File
+
+Submodules are defined in `.gitmodules`:
+
+```ini .gitmodules
+[submodule "vendor/library"]
+	path = vendor/library
+	url = https://github.com/example/library.git
+	 branch = main
+```
+
+**Fields:**
+- `path`: Location in your repository
+- `url`: Remote repository URL
+- `branch`: (Optional) Branch to track
+
+### .git/config
+
+Local configuration in `.git/config`:
+
+```ini
+[submodule "vendor/library"]
+	url = https://github.com/example/library.git
+	active = true
+```
+
+## Cloning with Submodules
+
+GitHub Desktop automatically handles submodules when cloning:
+
+### Automatic Recursive Clone
+
+```typescript
+// From app/src/lib/git/clone.ts
+const args = [
+  '-c',
+  `init.defaultBranch=${defaultBranch}`,
+  'clone',
+  '--recursive',  // Automatically initializes submodules
+]
+
+if (options.branch) {
+  args.push('-b', options.branch)
+}
+
+args.push('--', url, path)
+
+await git(args, __dirname, 'clone', opts)
+```
+
+<Info>
+When you clone a repository in GitHub Desktop, it automatically clones all submodules recursively using the `--recursive` flag.
+</Info>
+
+### What Happens:
+
+<Steps>
+  <Step title="Clone Main Repository">
+    GitHub Desktop clones the main repository
+  </Step>
+  <Step title="Read .gitmodules">
+    Identifies all submodules from `.gitmodules`
+  </Step>
+  <Step title="Initialize Submodules">
+    Runs `git submodule init` for each submodule
+  </Step>
+  <Step title="Clone Submodules">
+    Clones each submodule repository
+  </Step>
+  <Step title="Checkout Commits">
+    Checks out the specific commit SHA recorded in the parent
+  </Step>
+</Steps>
+
+## Updating Submodules
+
+GitHub Desktop automatically updates submodules during Git operations:
+
+### Update Implementation
+
+```typescript
+// From app/src/lib/git/submodule.ts
+export async function updateSubmodulesAfterOperation<T extends Progress>(
+  repository: Repository,
+  remote: IRemote | null,
+  progressCallback: ((progress: T) => void) | undefined,
+  progressKind: T['kind'],
+  title: string,
+  targetOrRemote: string,
+  allowFileProtocol: boolean
+): Promise<void> {
+  const opts: IGitStringExecutionOptions = {
+    env: await envForRemoteOperation(
+      getFallbackUrlForProxyResolve(repository, remote)
+    ),
+    expectedErrors: AuthenticationErrors,
+  }
+  
+  const args = [
+    ...(allowFileProtocol ? ['-c', 'protocol.file.allow=always'] : []),
+    'submodule',
+    'update',
+    '--init',       // Initialize new submodules
+    '--recursive',  // Update nested submodules
+  ]
+  
+  await git(args, repository.path, 'updateSubmodules', opts)
+}
+```
+
+### When Submodules Update:
+
+GitHub Desktop updates submodules after:
+
+1. **Checkout**: Switching branches
+2. **Pull**: Pulling changes from remote
+3. **Merge**: Merging branches
+4. **Rebase**: Rebasing branches
+
+This ensures submodules are always at the correct commit.
+
+### Progress Tracking
+
+```typescript
+let submoduleEventCount = 0
+
+const progressOpts = await executionOptionsWithProgress(
+  { ...opts, trackLFSProgress: true },
+  {
+    parse(line: string): IGitOutput {
+      if (
+        line.match(/^Submodule path (.)+?: checked out /) ||
+        line.startsWith('Cloning into ')
+      ) {
+        submoduleEventCount += 1
+      }
+      
+      return {
+        kind: 'context',
+        text: `Updating submodules: ${line}`,
+        // Exponential progress that slows down
+        // (we don't know total submodule count upfront)
+        percent: 1 - Math.exp(-submoduleEventCount * 0.25),
+      }
+    },
+  },
+  progress => {
+    progressCallback({
+      kind: progressKind,
+      title,
+      description: progress.kind === 'progress' 
+        ? progress.details.text 
+        : progress.text,
+      value: progress.percent,
+    })
+  }
+)
+```
+
+<Info>
+GitHub Desktop shows progress when updating submodules, with a smooth exponential curve since the total count isn't known upfront.
+</Info>
+
+## Viewing Submodule Status
+
+GitHub Desktop detects submodules and their state:
+
+### Listing Submodules
+
+```typescript
+export async function listSubmodules(
+  repository: Repository
+): Promise<ReadonlyArray<SubmoduleEntry>> {
+  // Check if submodules exist
+  const [submodulesFile, submodulesDir] = await Promise.all([
+    pathExists(Path.join(repository.path, '.gitmodules')),
+    pathExists(Path.join(repository.path, '.git', 'modules')),
+  ])
+  
+  if (!submodulesFile && !submodulesDir) {
+    log.info('No submodules found. Skipping "git submodule status"')
+    return []
+  }
+  
+  const { stdout } = await git(
+    ['submodule', 'status', '--'],
+    repository.path,
+    'listSubmodules'
+  )
+  
+  const submodules = new Array<SubmoduleEntry>()
+  
+  // Parse output format:
+  // " 1eaabe34fc6f486367a176207420378f587d3b48 git (v2.16.0-rc0)"
+  const statusRe = /^.([^ ]+) (.+) \((.+?)\)$/gm
+  
+  for (const [, sha, path, describe] of stdout.matchAll(statusRe)) {
+    submodules.push(new SubmoduleEntry(sha, path, describe))
+  }
+  
+  return submodules
+}
+```
+
+### Submodule Status Indicators
+
+The first character in `git submodule status` output indicates:
+
+- ` ` (space): Submodule is checked out at the correct commit
+- `-`: Submodule is not initialized
+- `+`: Submodule is checked out to a different commit than recorded
+- `U`: Submodule has merge conflicts
+
+## Modifying Submodules
+
+### Updating a Submodule
+
+To update a submodule to a newer commit:
+
+<Steps>
+  <Step title="Navigate to Submodule">
+    Open terminal and `cd` into the submodule directory
+  </Step>
+  <Step title="Pull Changes">
+    ```bash
+    cd vendor/library
+    git pull origin main
+    ```
+  </Step>
+  <Step title="Return to Parent">
+    ```bash
+    cd ../..
+    ```
+  </Step>
+  <Step title="Commit Submodule Update">
+    In GitHub Desktop, you'll see the submodule as modified. Commit this change to update the submodule pointer.
+  </Step>
+</Steps>
+
+### Resetting Submodules
+
+Reset submodules to the recorded commit:
+
+```typescript
+export async function resetSubmodulePaths(
+  repository: Repository,
+  paths: ReadonlyArray<string>
+): Promise<void> {
+  if (paths.length === 0) {
+    return
+  }
+  
+  await git(
+    ['submodule', 'update', '--recursive', '--force', '--', ...paths],
+    repository.path,
+    'updateSubmodule'
+  )
+}
+```
+
+Use this to:
+- Discard local changes in submodules
+- Reset to the commit recorded in parent
+- Fix submodules in unexpected states
+
+## Submodule Workflows
+
+### Adding a New Submodule
+
+Use the terminal:
+
+```bash
+# Add submodule
+git submodule add https://github.com/example/library.git vendor/library
+
+# Initialize and update
+git submodule update --init --recursive
+
+# Commit the changes
+# (In GitHub Desktop, commit .gitmodules and the submodule directory)
+```
+
+GitHub Desktop will then track the submodule.
+
+### Removing a Submodule
+
+Use the terminal:
+
+```bash
+# Remove from .gitmodules
+git config -f .gitmodules --remove-section submodule.vendor/library
+
+# Remove from .git/config  
+git config -f .git/config --remove-section submodule.vendor/library
+
+# Remove from working tree
+rm -rf vendor/library
+
+# Remove from index
+git rm --cached vendor/library
+
+# Commit the changes in GitHub Desktop
+```
+
+### Updating All Submodules
+
+Update all submodules to their latest commits:
+
+```bash
+git submodule update --remote --recursive
+```
+
+Then commit the updates in GitHub Desktop.
+
+## File Protocol Support
+
+Some operations allow file:// URLs for submodules:
+
+```typescript
+const args = [
+  ...(allowFileProtocol ? ['-c', 'protocol.file.allow=always'] : []),
+  'submodule',
+  'update',
+  '--init',
+  '--recursive',
+]
+```
+
+This enables:
+- Local submodules (for testing)
+- Submodules on network drives
+- Internal corporate repositories
+
+<Warning>
+File protocol access is restricted by default for security. GitHub Desktop enables it only when necessary.
+</Warning>
+
+## Nested Submodules
+
+GitHub Desktop supports submodules within submodules:
+
+```
+project/
+└── vendor/
+    └── library/          # Submodule
+        └── dependencies/ # Nested submodule
+```
+
+The `--recursive` flag ensures all levels are:
+- Cloned when cloning the parent
+- Updated when updating the parent
+- Initialized when checking out
+
+## Best Practices
+
+<Tip>
+**Pin submodules to specific commits**: Don't rely on branch tracking. Explicitly commit the submodule SHA you want.
+</Tip>
+
+1. **Keep Submodules Updated**
+   - Regularly update to latest commits
+   - Test after updating
+   - Commit submodule updates separately
+
+2. **Document Submodule Purpose**
+   - Add comments in `.gitmodules`
+   - Document in README
+   - Explain why it's a submodule
+
+3. **Avoid Modifying Submodules Directly**
+   - Make changes in the submodule's repository
+   - Pull updates into parent repo
+   - Don't commit directly in submodule directories
+
+4. **Use HTTPS for Public Submodules**
+   - SSH URLs require key access
+   - HTTPS works for everyone
+   - Easier for CI/CD
+
+5. **Initialize Before Operations**
+   - Always run `git submodule update --init`
+   - GitHub Desktop does this automatically
+   - Important for CI/CD scripts
+
+6. **Consider Alternatives**
+   - Package managers for dependencies
+   - Monorepo tools for related code
+   - Subtrees for simpler workflows
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Submodule Not Updating">
+    If a submodule doesn't update:
+    - Check if it's initialized: `git submodule status`
+    - Update manually: `git submodule update --init --recursive`
+    - Verify URL in `.gitmodules` is correct
+    - Check network/authentication issues
+  </Accordion>
+  
+  <Accordion title="Submodule Showing as Modified">
+    If submodule always appears modified:
+    - Submodule is at a different commit than recorded
+    - Check current commit: `cd submodule && git rev-parse HEAD`
+    - Reset to recorded: `git submodule update --force`
+    - Or commit the new state to update the pointer
+  </Accordion>
+  
+  <Accordion title="Detached HEAD in Submodule">
+    Submodules are typically in detached HEAD state:
+    - This is normal behavior
+    - Submodules point to specific commits, not branches
+    - To make changes:
+      ```bash
+      cd submodule
+      git checkout main
+      # make changes
+      git commit
+      cd ..
+      git add submodule
+      git commit -m "Update submodule"
+      ```
+  </Accordion>
+  
+  <Accordion title="Clone Without Submodules">
+    If submodules are missing after clone:
+    - Initialize them: `git submodule init`
+    - Update them: `git submodule update --recursive`
+    - Or in one command: `git submodule update --init --recursive`
+    - GitHub Desktop does this automatically
+  </Accordion>
+  
+  <Accordion title="Authentication Failures">
+    If submodule operations fail with auth errors:
+    - Verify you have access to submodule repository
+    - Check URL protocol (HTTPS vs SSH)
+    - Ensure credentials are configured
+    - Try updating URL in `.gitmodules`
+  </Accordion>
+</AccordionGroup>
+
+## Submodule Alternatives
+
+### Git Subtrees
+
+**Pros:**
+- Simpler than submodules
+- No special commands needed
+- Easier for collaborators
+
+**Cons:**
+- History becomes intermingled
+- Harder to contribute back upstream
+
+### Package Managers
+
+**Pros:**
+- Designed for dependencies
+- Version resolution
+- Easier updates
+
+**Cons:**
+- Requires package to be published
+- Less control over source
+
+### Monorepo Tools
+
+**Pros:**
+- Better tooling (Lerna, Nx, Rush)
+- Shared dependencies
+- Atomic commits across projects
+
+**Cons:**
+- Repository can get large
+- Requires tool adoption
+
+## Related Topics
+
+- [Repository Management](/features/repository-management)
+- [Committing Changes](/features/committing-changes)
+- [Branches](/features/branches)
+- [Git Configuration](/configuration/git-config)

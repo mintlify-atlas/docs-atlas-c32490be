@@ -1,0 +1,373 @@
+---
+title: GitHub Integration
+description: Learn how GitHub Desktop integrates with GitHub's API for authentication, pull requests, issues, and more
+---
+
+GitHub Desktop provides deep integration with GitHub.com and GitHub Enterprise Server through OAuth authentication and the GitHub REST API.
+
+## OAuth Authentication
+
+GitHub Desktop uses the [OAuth web application flow](https://docs.github.com/en/developers/apps/building-oauth-apps/authorizing-oauth-apps) to authenticate users and perform actions on their behalf.
+
+### OAuth Scopes
+
+The application requests the following OAuth scopes:
+
+- `repo` - Full control of private repositories
+- `user` - Read/write access to profile info
+- `workflow` - Update GitHub Action workflows
+
+```ts app/src/lib/api.ts
+const oauthScopes = ['repo', 'user', 'workflow']
+```
+
+### Client Credentials
+
+For development and testing, GitHub Desktop includes bundled OAuth credentials. In production, you can provide your own:
+
+<CodeGroup>
+```bash macOS/Linux
+export DESKTOP_OAUTH_CLIENT_ID="your_client_id"
+export DESKTOP_OAUTH_CLIENT_SECRET="your_client_secret"
+```
+
+```powershell Windows
+$env:DESKTOP_OAUTH_CLIENT_ID="your_client_id"
+$env:DESKTOP_OAUTH_CLIENT_SECRET="your_client_secret"
+```
+</CodeGroup>
+
+<Note>
+The bundled developer OAuth application will **not work with GitHub Enterprise**. You must provide your own credentials for Enterprise instances.
+</Note>
+
+## API Client
+
+The `API` class provides methods for interacting with GitHub's REST API:
+
+```ts app/src/lib/api.ts
+export class API {
+  private endpoint: string
+  private token: string
+  private copilotEndpoint?: string
+
+  public constructor(
+    endpoint: string,
+    token: string,
+    copilotEndpoint?: string
+  ) {
+    this.endpoint = endpoint
+    this.token = token
+    this.copilotEndpoint = copilotEndpoint
+  }
+
+  /** Create a new API client from the given account. */
+  public static fromAccount(account: Account): API {
+    return new API(account.endpoint, account.token, account.copilotEndpoint)
+  }
+}
+```
+
+### Authentication Keys
+
+Account authentication keys are stored securely using the operating system's credential manager:
+
+```ts app/src/lib/auth.ts
+export function getKeyForAccount(account: Account): string {
+  return getKeyForEndpoint(account.endpoint)
+}
+
+export function getKeyForEndpoint(endpoint: string): string {
+  const appName = __DEV__ ? 'GitHub Desktop Dev' : 'GitHub'
+  return `${appName} - ${endpoint}`
+}
+```
+
+## Repository Operations
+
+### Fetching Repository Information
+
+<Steps>
+  <Step title="Fetch repository details">
+    Use the `fetchRepository` method to get repository metadata:
+
+    ```ts
+    const api = API.fromAccount(account)
+    const repo = await api.fetchRepository('owner', 'repo-name')
+    ```
+  </Step>
+
+  <Step title="Access repository properties">
+    The response includes:
+    - Clone URLs (HTTPS and SSH)
+    - Default branch
+    - Fork status
+    - Permissions
+    - Archive status
+
+    ```ts
+    export interface IAPIFullRepository extends IAPIRepository {
+      readonly parent: IAPIRepository | undefined
+      readonly permissions?: IAPIRepositoryPermissions
+    }
+    ```
+  </Step>
+
+  <Step title="Clone with preferred protocol">
+    ```ts
+    const cloneInfo = await api.fetchRepositoryCloneInfo(
+      'owner',
+      'repo-name',
+      'ssh' // or 'https'
+    )
+    ```
+  </Step>
+</Steps>
+
+### Creating Repositories
+
+```ts app/src/lib/api.ts
+public async createRepository(
+  org: IAPIOrganization | null,
+  name: string,
+  description: string,
+  private_: boolean
+): Promise<IAPIFullRepository> {
+  const apiPath = org ? `orgs/${org.login}/repos` : 'user/repos'
+  const response = await this.ghRequest('POST', apiPath, {
+    body: {
+      name,
+      description,
+      private: private_,
+    },
+  })
+
+  return await parsedResponse<IAPIFullRepository>(response)
+}
+```
+
+## Pull Request Integration
+
+### Fetching Pull Requests
+
+GitHub Desktop efficiently fetches pull requests using pagination:
+
+```ts app/src/lib/api.ts
+public async fetchAllOpenPullRequests(owner: string, name: string) {
+  const url = urlWithQueryString(`repos/${owner}/${name}/pulls`, {
+    state: 'open',
+  })
+  return await this.fetchAll<IAPIPullRequest>(url)
+}
+```
+
+### Incremental Updates
+
+For repositories with many PRs, GitHub Desktop uses an intelligent pagination strategy that ramps up page size:
+
+<Tip>
+The pagination algorithm starts with a page size of 10 and doubles it when appropriate, up to the maximum of 100 items per page. This optimizes for both small updates (fewer changed PRs) and large updates (many changed PRs).
+</Tip>
+
+```ts app/src/lib/api.ts
+public async fetchUpdatedPullRequests(
+  owner: string,
+  name: string,
+  since: Date,
+  maxResults = 320
+) {
+  const url = urlWithQueryString(`repos/${owner}/${name}/pulls`, {
+    state: 'all',
+    sort: 'updated',
+    direction: 'desc',
+  })
+
+  const prs = await this.fetchAll<IAPIPullRequest>(url, {
+    perPage: 10,
+    getNextPagePath: getNextPagePathWithIncreasingPageSize,
+    continue(results) {
+      const last = results.at(-1)
+      return last !== undefined && Date.parse(last.updated_at) > sinceTime
+    },
+  })
+}
+```
+
+### Pull Request Details
+
+The API provides comprehensive PR information:
+
+```ts app/src/lib/api.ts
+export interface IAPIPullRequest {
+  readonly number: number
+  readonly title: string
+  readonly created_at: string
+  readonly updated_at: string
+  readonly user: IAPIIdentity
+  readonly head: IAPIPullRequestRef
+  readonly base: IAPIPullRequestRef
+  readonly body: string
+  readonly state: 'open' | 'closed'
+  readonly draft?: boolean
+}
+```
+
+## Issue Management
+
+### Fetching Issues
+
+Retrieve issues with filtering by state and date:
+
+```ts app/src/lib/api.ts
+public async fetchIssues(
+  owner: string,
+  name: string,
+  state: 'open' | 'closed' | 'all',
+  since: Date | null
+): Promise<ReadonlyArray<IAPIIssue>> {
+  const params: { [key: string]: string } = { state }
+  if (since && !isNaN(since.getTime())) {
+    params.since = toGitHubIsoDateString(since)
+  }
+
+  const url = urlWithQueryString(`repos/${owner}/${name}/issues`, params)
+  const issues = await this.fetchAll<IAPIIssue>(url)
+
+  // PRs are issues! But we only want Real Issues.
+  return issues.filter((i: any) => !i.pullRequest)
+}
+```
+
+### Fetching Comments
+
+<CodeGroup>
+```ts Issue Comments
+const comments = await api.fetchIssueComments(
+  'owner',
+  'repo-name',
+  'issue-number'
+)
+```
+
+```ts PR Review Comments
+const comments = await api.fetchPullRequestReviewComments(
+  'owner',
+  'repo-name',
+  'pr-number',
+  'review-id'
+)
+```
+</CodeGroup>
+
+## Check Runs and Status
+
+### Combined Status
+
+Fetch the combined status for a commit reference:
+
+```ts app/src/lib/api.ts
+public async fetchCombinedRefStatus(
+  owner: string,
+  name: string,
+  ref: string,
+  reloadCache: boolean = false
+): Promise<IAPIRefStatus | null> {
+  const safeRef = encodeURIComponent(ref)
+  const path = `repos/${owner}/${name}/commits/${safeRef}/status?per_page=100`
+  const response = await this.ghRequest('GET', path, { reloadCache })
+  return await parsedResponse<IAPIRefStatus>(response)
+}
+```
+
+### Check Runs
+
+Retrieve GitHub Actions check runs:
+
+```ts app/src/lib/api.ts
+public async fetchRefCheckRuns(
+  owner: string,
+  name: string,
+  ref: string,
+  reloadCache: boolean = false
+): Promise<IAPIRefCheckRuns | null> {
+  const safeRef = encodeURIComponent(ref)
+  const path = `repos/${owner}/${name}/commits/${safeRef}/check-runs?per_page=100`
+  const headers = {
+    Accept: 'application/vnd.github.antiope-preview+json',
+  }
+
+  const response = await this.ghRequest('GET', path, {
+    customHeaders: headers,
+    reloadCache,
+  })
+  return await parsedResponse<IAPIRefCheckRuns>(response)
+}
+```
+
+## Branch Protection
+
+### Push Control
+
+Check if a user can push to a protected branch:
+
+```ts app/src/lib/api.ts
+export interface IAPIPushControl {
+  required_status_checks: Array<string>
+  required_approving_review_count: number
+  allow_actor: boolean
+  pattern: string | null
+  required_signatures: boolean
+  required_linear_history: boolean
+  allow_deletions: boolean
+  allow_force_pushes: boolean
+}
+```
+
+<Note>
+`allow_actor` is always `true` for repository admins, even if push restrictions are enabled.
+</Note>
+
+### Repository Rules
+
+Fetch repository rules that apply to a specific branch:
+
+```ts
+const rules = await api.fetchRepoRulesForBranch(
+  'owner',
+  'repo-name',
+  'branch-name'
+)
+```
+
+Supported rule types include:
+- `creation` - Branch creation rules
+- `update` - Update restrictions
+- `required_status_checks` - Required CI checks
+- `pull_request` - PR requirements
+- `commit_message_pattern` - Commit message validation
+- `required_signatures` - Signed commit requirements
+
+## Error Handling
+
+The API includes comprehensive error handling and token invalidation callbacks:
+
+```ts app/src/lib/api.ts
+export class API {
+  private static readonly tokenInvalidatedListeners =
+    new Set<TokenInvalidatedCallback>()
+
+  public static onTokenInvalidated(callback: TokenInvalidatedCallback) {
+    this.tokenInvalidatedListeners.add(callback)
+  }
+
+  private static emitTokenInvalidated(endpoint: string, token: string) {
+    this.tokenInvalidatedListeners.forEach(callback =>
+      callback(endpoint, token)
+    )
+  }
+}
+```
+
+<Card title="Related Documentation" icon="book">
+  Learn more about GitHub's API in the [GitHub REST API documentation](https://docs.github.com/en/rest).
+</Card>

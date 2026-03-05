@@ -1,0 +1,553 @@
+---
+title: "Rebasing"
+description: "Learn how to rebase branches, handle conflicts, and understand the rebase workflow in GitHub Desktop"
+---
+
+## Overview
+
+Rebasing is a Git operation that moves or combines commits from one branch onto another. It's an alternative to merging that creates a linear project history. GitHub Desktop provides a safe and intuitive interface for rebasing.
+
+<CardGroup cols={2}>
+  <Card title="Linear History" icon="timeline">
+    Create a clean, linear commit history
+  </Card>
+  <Card title="Conflict Detection" icon="triangle-exclamation">
+    Preview conflicts before starting the rebase
+  </Card>
+  <Card title="Interactive Progress" icon="bars-progress">
+    See real-time progress as commits are applied
+  </Card>
+  <Card title="Force Push Support" icon="upload">
+    Safely force push with --force-with-lease
+  </Card>
+</CardGroup>
+
+## Understanding Rebase
+
+### What is Rebasing?
+
+Rebasing rewrites commit history by:
+1. Taking commits from your current branch
+2. Temporarily removing them
+3. Updating the base branch to the target
+4. Reapplying your commits on top of the new base
+
+### Rebase vs. Merge
+
+<Tabs>
+  <Tab title="Rebase">
+    **Linear History:**
+    ```
+    Before:          After:
+    main:  A---B     main:  A---B
+            \                 \
+    feat:    C---D   feat:      C'---D'
+    ```
+    
+    **Characteristics:**
+    - Creates linear history
+    - Rewrites commits (new SHAs)
+    - Cleaner history
+    - Requires force push if already pushed
+  </Tab>
+  
+  <Tab title="Merge">
+    **Merge Commit:**
+    ```
+    Before:          After:
+    main:  A---B     main:  A---B---M
+            \                /   /
+    feat:    C---D   feat: C---D
+    ```
+    
+    **Characteristics:**
+    - Preserves original commits
+    - Creates merge commit
+    - Shows true history
+    - No force push needed
+  </Tab>
+</Tabs>
+
+## When to Use Rebase
+
+### Good Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Update Feature Branch" icon="code-branch">
+    Keep your feature branch up to date with main before merging
+  </Card>
+  <Card title="Clean Up History" icon="broom">
+    Create a clean, linear history before creating a pull request
+  </Card>
+  <Card title="Local Commits" icon="computer">
+    Reorganize commits that haven't been pushed yet
+  </Card>
+  <Card title="Interactive Cleanup" icon="list-check">
+    Squash, edit, or reorder commits before pushing
+  </Card>
+</CardGroup>
+
+### When to Avoid Rebase
+
+<Warning>
+**Never rebase commits that have been pushed to a shared branch** unless you have explicit agreement from your team.
+</Warning>
+
+**Avoid rebasing when:**
+- Commits are on a shared branch
+- Other developers have based work on your commits
+- Working on the repository's main/default branch
+- You're unsure about the impact
+- Multiple people are working on the same feature branch
+
+## Rebasing in GitHub Desktop
+
+### Basic Rebase Workflow
+
+<Steps>
+  <Step title="Switch to Branch">
+    Check out the branch you want to rebase (e.g., your feature branch)
+  </Step>
+  <Step title="Open Rebase Dialog">
+    Click **Branch** > **Rebase current branch**
+  </Step>
+  <Step title="Select Base Branch">
+    Choose the branch to rebase onto (usually `main` or `develop`)
+  </Step>
+  <Step title="Review Information">
+    GitHub Desktop shows:
+    - Number of commits to rebase
+    - Potential conflict warnings
+    - Remote commit warnings (if applicable)
+  </Step>
+  <Step title="Start Rebase">
+    Click **Begin rebase**
+  </Step>
+  <Step title="Monitor Progress">
+    Watch as commits are applied one by one
+  </Step>
+  <Step title="Handle Conflicts (if any)">
+    Resolve any conflicts that arise during the rebase
+  </Step>
+</Steps>
+
+## Rebase Implementation
+
+From the technical documentation and source code:
+
+### Testing the Rebase
+
+Before starting, GitHub Desktop determines:
+
+```typescript
+// 1. Identify commits that will be rebased
+const commits = await getCommitsInRange(
+  repository, 
+  `${upstream_oid}..${branch_oid}`
+)
+
+// 2. Check for remote commits
+if (tip.branch.upstreamRemoteName) {
+  const remoteCommits = await getCommitsInRange(
+    repository,
+    `${upstream_oid}..${remote_branch_oid}`
+  )
+  
+  // Warn if rebasing will affect remote commits
+  if (remoteCommits.length > 0) {
+    showForceP ushWarning()
+  }
+}
+```
+
+### Progress Tracking
+
+```typescript
+// From docs/technical/rebase-flow.md
+// GitHub Desktop parses Git's progress output
+// Progress information from:
+// - .git/rebase-merge/msgnum (current patch number)
+// - .git/rebase-merge/end (total patches)
+
+const progress = {
+  currentCommit: msgnum,
+  totalCommits: end,
+  value: msgnum / end
+}
+```
+
+### Rebase State Detection
+
+GitHub Desktop detects ongoing rebases:
+
+```typescript
+// Is a rebase in progress?
+const rebaseHead = await pathExists('.git/REBASE_HEAD')
+
+if (rebaseHead) {
+  // Read rebase state:
+  const targetBranch = await readFile('.git/rebase-merge/head-name')
+  const ontoCommit = await readFile('.git/rebase-merge/onto')
+  const originalHead = await readFile('.git/rebase-merge/orig-head')
+}
+```
+
+## Handling Conflicts During Rebase
+
+### When Conflicts Occur
+
+If a commit can't be applied cleanly:
+
+<Steps>
+  <Step title="Rebase Pauses">
+    GitHub Desktop stops at the conflicted commit
+  </Step>
+  <Step title="Shows Conflict Info">
+    Displays:
+    - Which commit caused the conflict
+    - Conflicted files
+    - Progress (e.g., "Commit 3 of 7")
+  </Step>
+  <Step title="Resolve Conflicts">
+    Fix conflicts in each file:
+    - Open in editor
+    - Choose "ours" or "theirs"
+    - Manually edit conflict markers
+  </Step>
+  <Step title="Continue or Skip">
+    After resolving:
+    - **Continue**: Apply this commit and continue
+    - **Skip**: Omit this commit (if it's empty after conflicts)
+    - **Abort**: Cancel the entire rebase
+  </Step>
+</Steps>
+
+### Continue Rebase
+
+After resolving conflicts:
+
+```typescript
+// Determine the appropriate action
+if (noChangesAfterResolution) {
+  // Commit is now empty - skip it
+  await git(['rebase', '--skip'])
+} else {
+  // Commit has changes - continue
+  await git(['rebase', '--continue'])
+}
+```
+
+<Info>
+If a commit becomes empty after conflict resolution (all changes were already in the base), GitHub Desktop automatically runs `git rebase --skip`.
+</Info>
+
+### Abort Rebase
+
+To cancel the rebase:
+
+<Steps>
+  <Step title="Click Abort">
+    Click **Abort rebase** in the rebase progress banner
+  </Step>
+  <Step title="Confirm">
+    If you've resolved conflicts, confirm you want to discard that work
+  </Step>
+  <Step title="Return to Original State">
+    Branch returns to its state before the rebase started
+  </Step>
+</Steps>
+
+```typescript
+await git(['rebase', '--abort'], repository.path)
+```
+
+## Force Pushing After Rebase
+
+### Why Force Push?
+
+After rebasing commits that were already pushed:
+- Commit SHAs have changed
+- Remote branch has the old commits
+- You must force push to update the remote
+
+### Safe Force Push
+
+GitHub Desktop uses `--force-with-lease` for safety:
+
+<Steps>
+  <Step title="Complete Rebase">
+    Finish the rebase successfully
+  </Step>
+  <Step title="Force Push Indicator">
+    GitHub Desktop shows **Force push origin** button
+  </Step>
+  <Step title="Review Warning">
+    If confirmation is enabled, review the force push warning
+  </Step>
+  <Step title="Force Push">
+    Click **Force push origin**
+  </Step>
+</Steps>
+
+```bash
+# GitHub Desktop uses
+git push --force-with-lease
+
+# NOT
+git push --force  # Dangerous!
+```
+
+**Why `--force-with-lease`?**
+- Fails if remote was updated by someone else
+- Prevents overwriting others' commits
+- Safer than `--force`
+
+<Warning>
+Before force pushing, ensure no one else is working on the branch. Force pushing rewrites history and can cause problems for collaborators.
+</Warning>
+
+## Force Push State Tracking
+
+GitHub Desktop tracks branches eligible for force push:
+
+```typescript
+// From app/src/lib/rebase.ts
+export enum ForcePushBranchState {
+  NotAvailable,     // Branch hasn't diverged
+  Available,        // Can force push, but not recommended
+  Recommended,      // Should force push (after rebase/amend)
+}
+
+export function getCurrentBranchForcePushState(
+  branchesState: IBranchesState,
+  aheadBehind: IAheadBehind | null
+): ForcePushBranchState {
+  // Check if branch is ahead and behind (diverged)
+  if (aheadBehind === null || behind === 0 || ahead === 0) {
+    return ForcePushBranchState.NotAvailable
+  }
+  
+  // Check if this branch was rebased in Desktop
+  const { tip, forcePushBranches } = branchesState
+  if (tip.kind === TipState.Valid) {
+    const foundEntry = forcePushBranches.get(localBranchName)
+    const canForcePushBranch = foundEntry === sha
+  }
+  
+  return canForcePushBranch
+    ? ForcePushBranchState.Recommended
+    : ForcePushBranchState.Available
+}
+```
+
+## Rebase Confirmation Dialog
+
+If enabled in preferences, GitHub Desktop shows a warning when:
+
+### Remote Commits Detected
+
+When rebasing a branch with pushed commits:
+
+**Warning shows:**
+- Number of commits that will be rewritten
+- Explanation of force push requirement
+- Impact on collaborators
+- Option to continue or cancel
+
+**From the source:**
+```typescript
+// Check for remote commits in the range
+const remoteCommits = await getCommitsInRange(
+  repository,
+  `${upstreamOid}..${remoteBranchOid}`
+)
+
+if (remoteCommits.length > 0 && showConfirmation) {
+  const result = await showRebaseConfirmationDialog(
+    remoteCommits.length
+  )
+  
+  if (result === 'cancel') {
+    return // Don't start rebase
+  }
+}
+```
+
+## Rebase vs. Merge: Choosing the Right Tool
+
+### Use Rebase When:
+
+1. **Cleaning Up Local Commits**
+   - Before creating a pull request
+   - Commits haven't been pushed
+   - Want a clean, linear history
+
+2. **Updating Feature Branches**
+   - Bringing latest changes from main
+   - Before merging via PR
+   - No one else is on the branch
+
+3. **Maintaining Clean History**
+   - Project prefers linear history
+   - Team understands rebase workflow
+   - Following agreed conventions
+
+### Use Merge When:
+
+1. **Shared Branches**
+   - Multiple people working on the branch
+   - Commits are public
+   - Want to preserve exact history
+
+2. **Main/Default Branch**
+   - Never rebase the main branch
+   - Merge feature branches into it
+   - Keep stable history
+
+3. **Unsure About Impact**
+   - When in doubt, merge is safer
+   - Can always rebase later locally
+   - Easier to undo
+
+## Best Practices
+
+<Tip>
+**Communicate before rebasing**: If there's any chance someone else is using your branch, ask before rebasing and force pushing.
+</Tip>
+
+1. **Rebase Often**
+   - Keep feature branches updated with main
+   - Rebase frequently to avoid large conflicts
+   - Makes final merge easier
+
+2. **Test After Rebasing**
+   - Run tests after completing a rebase
+   - Conflicts can introduce bugs
+   - Verify everything still works
+
+3. **One Commit at a Time**
+   - Resolve conflicts commit-by-commit
+   - Don't rush through conflicts
+   - Test between conflict resolutions if possible
+
+4. **Use Descriptive Commit Messages**
+   - Makes rebasing easier to follow
+   - Helps identify which commits to keep/skip
+   - Useful when resolving conflicts
+
+5. **Enable Force Push Confirmation**
+   - Requires explicit confirmation before force pushing
+   - Prevents accidental overwrites
+   - Enabled by default in **Preferences** > **Git**
+
+6. **Understand the Consequences**
+   - Know that rebase rewrites history
+   - Be prepared to force push
+   - Communicate with team
+
+## Common Rebase Scenarios
+
+### Update Feature Branch from Main
+
+```
+Goal: Bring latest main changes into your feature branch
+
+1. Switch to feature branch
+2. Branch > Rebase current branch
+3. Select 'main'
+4. Complete rebase
+5. Force push if previously pushed
+```
+
+### Clean Up Before Pull Request
+
+```
+Goal: Create clean history before PR
+
+1. Ensure feature branch is current
+2. Rebase onto main to update
+3. Force push feature branch
+4. Create pull request with clean history
+```
+
+### Rebase After Main Updated
+
+```
+Scenario: Main branch moved forward during PR review
+
+1. Fetch latest changes
+2. Switch to feature branch  
+3. Rebase onto updated main
+4. Resolve any new conflicts
+5. Force push to update PR
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Rebase Button Disabled">
+    The rebase option is disabled when:
+    - Repository has uncommitted changes (commit or stash first)
+    - Currently in a merge, rebase, or cherry-pick state
+    - On a detached HEAD (checkout a branch first)
+    - No commits to rebase
+  </Accordion>
+  
+  <Accordion title="Too Many Conflicts">
+    If you encounter overwhelming conflicts:
+    - **Abort the rebase**: Better to merge than fight conflicts
+    - **Update more frequently**: Smaller, frequent rebases have fewer conflicts
+    - **Consider merge instead**: Merging might be more appropriate
+    - **Ask for help**: Consult the commit authors
+  </Accordion>
+  
+  <Accordion title="Lost Commits After Abort">
+    If commits seem lost after aborting:
+    - They're not actually lost
+    - Check `git reflog` to find them
+    - Branch pointer was just moved back
+    - Can recover with `git reset --hard <sha>`
+  </Accordion>
+  
+  <Accordion title="Force Push Rejected">
+    If force push fails:
+    - **Branch is protected**: Check branch protection rules
+    - **No force push permission**: You may not have rights
+    - **Someone pushed**: Another commit was pushed (fetch first)
+    - **Wrong branch**: Verify you're on the correct branch
+  </Accordion>
+  
+  <Accordion title="Rebase Stuck or Frozen">
+    If rebase appears stuck:
+    - Check for hook scripts that are running
+    - Look for prompts in terminal
+    - Verify disk space available
+    - Try aborting and restarting
+  </Accordion>
+</AccordionGroup>
+
+## Advanced: Interactive Rebase
+
+While GitHub Desktop doesn't provide a GUI for interactive rebase, you can use the terminal:
+
+```bash
+# In the repository directory
+git rebase -i HEAD~5
+
+# Options in the editor:
+pick    = use commit
+reword  = use commit, but edit message
+edit    = use commit, but stop to amend
+squash  = meld into previous commit
+fixup   = like squash, but discard message
+drop    = remove commit
+```
+
+Then return to GitHub Desktop to see the results.
+
+## Related Topics
+
+- [Merge Conflicts](/features/merge-conflicts)
+- [Branches](/features/branches)
+- [Cherry-Picking](/workflows/cherry-picking)
+- [History and Diffs](/features/history-and-diffs)

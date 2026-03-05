@@ -1,0 +1,323 @@
+---
+title: Frequently Asked Questions
+description: Common questions about GitHub Desktop
+---
+
+Find answers to frequently asked questions about GitHub Desktop.
+
+## General Questions
+
+<Accordion title="What is GitHub Desktop?">
+  GitHub Desktop is an open-source application that extends GitHub to your local environment. It provides a graphical interface for Git operations, making it easier to work with repositories without using the command line.
+  
+  Key features:
+  - Visual diff viewing
+  - Branch management
+  - Commit history visualization
+  - Pull request integration
+  - Conflict resolution assistance
+  - Support for GitHub, GitHub Enterprise, and other Git hosting providers
+</Accordion>
+
+<Accordion title="Who is GitHub Desktop for?">
+  GitHub Desktop is designed to make Git and GitHub workflows more approachable for everyone, with a focus on:
+  
+  - **Beginners:** Those new to Git who want a visual, user-friendly interface
+  - **Software developers:** Working on collaborative projects
+  - **Teams:** Collaborating on code with GitHub workflows
+  
+  While advanced Git users can benefit from Desktop, it prioritizes workflows for beginners and collaborative development over advanced Git operations.
+</Accordion>
+
+<Accordion title="Is GitHub Desktop free?">
+  Yes, GitHub Desktop is completely free and open source under the MIT license. You can:
+  - Use it for free for any purpose (personal or commercial)
+  - View and contribute to the source code on [GitHub](https://github.com/desktop/desktop)
+  - Modify it for your own needs
+</Accordion>
+
+<Accordion title="Does GitHub Desktop work with GitLab, Bitbucket, or other Git hosts?">
+  Yes, GitHub Desktop works with any Git repository, including:
+  - GitHub and GitHub Enterprise (with full integration)
+  - GitLab
+  - Bitbucket
+  - Azure DevOps
+  - Self-hosted Git servers
+  
+  However, GitHub Desktop is built primarily to extend GitHub's features. While basic Git operations work with all hosts, some advanced features (like pull request integration) work best with GitHub and GitHub Enterprise.
+</Accordion>
+
+## Installation and Setup
+
+<Accordion title="What operating systems does GitHub Desktop support?">
+  **Officially supported:**
+  - **macOS:** 10.9 (Mavericks) or higher
+    - Intel processors
+    - Apple Silicon (M1/M2) processors
+  - **Windows:** 7 or higher
+    - 64-bit versions
+    - ARM64 (Windows on ARM)
+  
+  **Community supported:**
+  - **Linux:** Community-maintained installers available from the [`shiftkey/desktop`](https://github.com/shiftkey/desktop) fork
+  
+  <Note>
+  Linux is not officially supported by the GitHub Desktop team.
+  </Note>
+</Accordion>
+
+<Accordion title="How do I install GitHub Desktop?">
+  **macOS:**
+  1. Download `GitHub Desktop.zip` from [desktop.github.com](https://desktop.github.com)
+  2. Unzip the file
+  3. Move `GitHub Desktop.app` to your Applications folder
+  
+  **Windows:**
+  - **Per-user install:** Download and run `GitHubDesktopSetup.exe` (recommended)
+  - **Machine-wide install:** Download and run `GitHubDesktopSetup.msi` (requires admin rights)
+  
+  **Alternative package managers:**
+  - Windows: `winget install github-desktop` or `choco install github-desktop`
+  - macOS: `brew install --cask github`
+</Accordion>
+
+<Accordion title="Where does GitHub Desktop store its data?">
+  **macOS:**
+  - Application data: `~/Library/Application Support/GitHub Desktop/`
+  - Log files: `~/Library/Application Support/GitHub Desktop/logs/`
+  - Cache: `~/Library/Caches/com.github.GitHubClient.ShipIt/`
+  
+  **Windows:**
+  - Application files: `%LOCALAPPDATA%\GitHubDesktop\`
+  - User data: `%APPDATA%\GitHub Desktop\`
+  - Log files: `%APPDATA%\GitHub Desktop\logs\`
+</Accordion>
+
+<Accordion title="Can I install different versions of GitHub Desktop?">
+  GitHub Desktop automatically updates to the latest version. Past releases are available at https://desktop.githubusercontent.com, but after installing an older version, the auto-update functionality will attempt to download the latest version.
+  
+  For beta versions, see the [Beta Channel section](/support/faq#beta-channel).
+</Accordion>
+
+## Features and Functionality
+
+<Accordion title="Is GitHub Desktop a replacement for Git command line?">
+  No, GitHub Desktop is not a replacement for Git command line. It's a tool that:
+  - Makes common Git workflows easier and more visual
+  - Reduces friction and "oh no" moments
+  - Helps you learn Git concepts while getting work done
+  
+  It doesn't expose every Git feature. Advanced users may still need the command line for specialized operations. However, GitHub Desktop and command-line Git can be used together on the same repositories.
+</Accordion>
+
+<Accordion title="Can I use GitHub Desktop alongside Git command line?">
+  Yes! GitHub Desktop and command-line Git work perfectly together. You can:
+  - Make commits in Desktop and push from the command line
+  - Create branches from the command line and switch to them in Desktop
+  - Use Desktop for visual diff viewing while using CLI for advanced operations
+  
+  Both tools work with the same repository files and Git database.
+</Accordion>
+
+<Accordion title="Does GitHub Desktop support Git LFS (Large File Storage)?">
+  Yes, GitHub Desktop has built-in support for Git LFS. It will automatically:
+  - Detect LFS-tracked files
+  - Handle LFS files during clone, pull, and push operations
+  - Show LFS file status in the UI
+  
+  You don't need to run separate LFS commands.
+</Accordion>
+
+<Accordion title="Can I manage pull requests in GitHub Desktop?">
+  Yes, GitHub Desktop provides pull request integration for GitHub and GitHub Enterprise repositories:
+  - View open pull requests
+  - Check out pull request branches
+  - See pull request status (checks, reviews)
+  - Create new pull requests
+  - View pull request details on GitHub.com
+  
+  Full pull request review and commenting still happens on GitHub.com.
+</Accordion>
+
+<Accordion title="Does GitHub Desktop support rebasing?">
+  Yes, GitHub Desktop supports interactive rebasing for:
+  - Reordering commits
+  - Squashing commits together
+  - Editing commit messages
+  - Updating branches with latest changes from the base branch
+  
+  The rebase interface is designed to be beginner-friendly while maintaining Git best practices.
+</Accordion>
+
+<Accordion title="Can I resolve merge conflicts in GitHub Desktop?">
+  Yes, GitHub Desktop helps with merge conflict resolution:
+  - Detects conflicts during merge/rebase operations
+  - Shows which files have conflicts
+  - Provides options to:
+    - Open files in your preferred editor
+    - Use "ours" or "theirs" version for simple conflicts
+    - Mark conflicts as resolved
+  
+  For complex conflicts, you can open the files in your code editor to resolve them manually.
+</Accordion>
+
+## Accounts and Authentication
+
+<Accordion title="Do I need a GitHub account to use GitHub Desktop?">
+  No, you don't need a GitHub account to use the basic Git features of GitHub Desktop. However, you'll need an account to:
+  - Clone private repositories from GitHub
+  - Push to GitHub repositories
+  - Use GitHub-specific features (pull requests, issues, etc.)
+  - Sign in to GitHub Enterprise
+  
+  You can use GitHub Desktop with local repositories and other Git hosts without a GitHub account.
+</Accordion>
+
+<Accordion title="Can I use multiple GitHub accounts?">
+  GitHub Desktop supports one GitHub.com account and one GitHub Enterprise account simultaneously. 
+  
+  If you need to work with multiple GitHub.com accounts:
+  - You'll need to sign out and sign in with a different account
+  - Use repository-specific Git configuration for commit authorship
+  - Consider using SSH keys for different accounts
+</Accordion>
+
+<Accordion title="How do I sign out of GitHub Desktop?">
+  To sign out:
+  1. Go to **File** > **Options** (Windows) or **GitHub Desktop** > **Preferences** (macOS)
+  2. Select the **Accounts** tab
+  3. Click **Sign Out** next to the account you want to remove
+</Accordion>
+
+## Updates and Beta
+
+<Accordion title="How do I update GitHub Desktop?">
+  GitHub Desktop updates automatically:
+  - It checks for updates periodically
+  - When an update is available, you'll see a notification
+  - Updates are downloaded in the background
+  - You'll be prompted to restart to apply the update
+  
+  You can manually check for updates:
+  - **Windows:** Help > About GitHub Desktop
+  - **macOS:** GitHub Desktop > About GitHub Desktop
+</Accordion>
+
+<Accordion title="What is the Beta Channel?">
+  The Beta Channel provides early access to:
+  - New features before general release
+  - Bug fixes
+  - Performance improvements
+  
+  Beta releases may be less stable than production releases.
+  
+  **Download beta installers:**
+  - [macOS (Intel)](https://central.github.com/deployments/desktop/desktop/latest/darwin?env=beta)
+  - [macOS (Apple Silicon)](https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64?env=beta)
+  - [Windows](https://central.github.com/deployments/desktop/desktop/latest/win32?env=beta)
+  - [Windows ARM64](https://central.github.com/deployments/desktop/desktop/latest/win32-arm64?env=beta)
+  
+  Release notes: https://desktop.github.com/release-notes/?env=beta
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="GitHub Desktop is not working correctly. What should I do?">
+  Try these steps in order:
+  
+  1. **Update to the latest version**
+     - Many issues are fixed in newer releases
+  
+  2. **Check Known Issues**
+     - See the [Known Issues](/support/known-issues) page
+  
+  3. **Review Troubleshooting Guide**
+     - See the [Troubleshooting](/support/troubleshooting) page
+  
+  4. **Search existing issues**
+     - Check [open issues](https://github.com/desktop/desktop/issues?q=is%3Aopen)
+     - Check [closed issues](https://github.com/desktop/desktop/issues?q=is%3Aclosed)
+  
+  5. **Report a new issue**
+     - [Open a new issue](https://github.com/desktop/desktop/issues/new/choose) with details
+</Accordion>
+
+<Accordion title="Where can I find log files?">
+  Log files are stored in:
+  
+  **macOS:**
+  - `~/Library/Application Support/GitHub Desktop/logs/`
+  
+  **Windows:**
+  - `%APPDATA%\GitHub Desktop\logs\`
+  
+  Files are named by date: `YYYY-MM-DD.desktop.production.log`
+  
+  For more details, see the [Troubleshooting](/support/troubleshooting) page.
+</Accordion>
+
+<Accordion title="How do I report a bug?">
+  To report a bug:
+  
+  1. Search [existing issues](https://github.com/desktop/desktop/issues) first
+  2. If not found, [create a new issue](https://github.com/desktop/desktop/issues/new?template=bug_report.md)
+  3. Include:
+     - GitHub Desktop version
+     - Operating system and version
+     - Steps to reproduce
+     - Expected vs. actual behavior
+     - Screenshots if relevant
+     - Log files if applicable
+  
+  <Note>
+  The [GitHub Desktop Code of Conduct](https://github.com/desktop/desktop/blob/development/CODE_OF_CONDUCT.md) applies to all interactions.
+  </Note>
+</Accordion>
+
+## Contributing
+
+<Accordion title="Can I contribute to GitHub Desktop?">
+  Yes! GitHub Desktop is open source and welcomes contributions:
+  
+  - **Code contributions:** Bug fixes, new features, improvements
+  - **Documentation:** Help improve docs
+  - **Issue triage:** Help other users, verify bugs
+  - **Testing:** Test beta releases
+  
+  **Getting started:**
+  1. Read [CONTRIBUTING.md](https://github.com/desktop/desktop/blob/development/.github/CONTRIBUTING.md)
+  2. Check [help wanted](https://github.com/desktop/desktop/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) issues
+  3. Review the [documentation](https://github.com/desktop/desktop/tree/development/docs)
+</Accordion>
+
+<Accordion title="What language is GitHub Desktop written in?">
+  GitHub Desktop is built with:
+  - **TypeScript:** Primary programming language
+  - **React:** UI framework
+  - **Electron:** Desktop application framework
+  - **Git:** Bundled Git binaries for core functionality
+  
+  It's a cross-platform application that runs on macOS and Windows.
+</Accordion>
+
+<Accordion title="Where is the source code?">
+  The source code is available on GitHub:
+  
+  **Main repository:** https://github.com/desktop/desktop
+  
+  - Open source under MIT license
+  - Public issue tracker
+  - Public pull requests and discussions
+  - Active community contributions
+</Accordion>
+
+## Getting More Help
+
+<Info>
+Still have questions? Check out these resources:
+- [Official GitHub Desktop documentation](https://docs.github.com/en/desktop)
+- [GitHub Desktop website](https://desktop.github.com)
+- [Troubleshooting guide](/support/troubleshooting)
+- [Known issues](/support/known-issues)
+- [GitHub Community](https://github.community/)
+</Info>

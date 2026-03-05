@@ -1,0 +1,614 @@
+---
+title: 'UI Components'
+description: 'React component architecture and patterns in GitHub Desktop'
+---
+
+GitHub Desktop's UI is built with React 16.8+ using a component-based architecture with hooks support and TypeScript for type safety.
+
+## Component Organization
+
+The UI layer is located in `app/src/ui/` with **80+ feature directories**, each containing related components:
+
+```
+app/src/ui/
+├── app.tsx                    # Root component
+├── dispatcher/                # Action dispatcher
+├── lib/                       # Reusable components
+│   ├── list/                 # Virtualized list component
+│   ├── dialog/               # Dialog system
+│   ├── form.tsx              # Form components
+│   └── button.tsx            # Button variants
+├── branches/                  # Branch management UI
+├── changes/                   # Working directory changes
+├── commit-message/            # Commit message editor
+├── diff/                      # Diff viewer
+├── history/                   # Commit history
+├── repositories-list/         # Repository sidebar
+└── [70+ more feature dirs]/
+```
+
+## Root Component
+
+### App Component
+
+**File**: `app/src/ui/app.tsx`
+
+The main application component managing global state and routing:
+
+```typescript
+import * as React from 'react'
+import { IAppState } from '../lib/app-state'
+import { Dispatcher } from './dispatcher'
+import { AppStore } from '../lib/stores'
+
+export class App extends React.Component<IAppProps, IAppState> {
+  public constructor(props: IAppProps) {
+    super(props)
+    this.state = props.appStore.getState()
+  }
+  
+  public componentDidMount() {
+    // Subscribe to state changes
+    this.props.appStore.onDidUpdate(state => {
+      this.setState(state)
+    })
+  }
+  
+  public render() {
+    const { selectedState } = this.state
+    
+    return (
+      <div id="desktop-app-chrome">
+        <TitleBar />
+        {this.renderAppMenuBar()}
+        {this.renderToolbar()}
+        {this.renderRepository()}
+        {this.renderPopup()}
+        {this.renderBanner()}
+      </div>
+    )
+  }
+}
+```
+
+<Info>
+  The App component acts as a "smart container" that manages application-wide state and delegates rendering to specialized components.
+</Info>
+
+## Component Patterns
+
+### Smart vs Presentational Components
+
+<CardGroup cols={2}>
+  <Card title="Smart Components" icon="brain">
+    Connected to stores, handle business logic, manage local state
+  </Card>
+  <Card title="Presentational Components" icon="eye">
+    Pure rendering, receive data via props, reusable across features
+  </Card>
+</CardGroup>
+
+#### Smart Component Example
+
+```typescript
+// app/src/ui/changes/changes.tsx
+export class ChangesList extends React.Component<IChangesListProps> {
+  public componentDidMount() {
+    // Load data from store
+    this.props.dispatcher.refreshWorkingDirectoryStatus()
+  }
+  
+  private onCommit = async () => {
+    const { repository, commitMessage } = this.props
+    await this.props.dispatcher.commitIncludedChanges(
+      repository,
+      commitMessage
+    )
+  }
+  
+  public render() {
+    return (
+      <div className="changes-list">
+        <ChangesSidebar files={this.props.workingDirectory} />
+        <CommitMessage onCommit={this.onCommit} />
+      </div>
+    )
+  }
+}
+```
+
+#### Presentational Component Example
+
+```typescript
+// app/src/ui/lib/button.tsx
+interface IButtonProps {
+  readonly onClick: () => void
+  readonly disabled?: boolean
+  readonly type?: 'submit' | 'button'
+  readonly children: React.ReactNode
+}
+
+export const Button: React.FC<IButtonProps> = ({
+  onClick,
+  disabled = false,
+  type = 'button',
+  children,
+}) => {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className="button-component"
+    >
+      {children}
+    </button>
+  )
+}
+```
+
+## Reusable Component Library
+
+### Dialog System
+
+**Location**: `app/src/ui/dialog/`
+
+A flexible dialog system with consistent styling:
+
+```typescript
+import { Dialog } from './dialog'
+import { DialogHeader } from './header'
+import { DialogContent } from './content'
+import { DialogFooter, OkCancelButtonGroup } from './footer'
+
+interface IMyDialogProps {
+  readonly onDismissed: () => void
+  readonly onConfirm: () => void
+}
+
+export const MyDialog: React.FC<IMyDialogProps> = ({
+  onDismissed,
+  onConfirm,
+}) => (
+  <Dialog onDismissed={onDismissed}>
+    <DialogHeader title="Confirm Action" />
+    <DialogContent>
+      <p>Are you sure you want to proceed?</p>
+    </DialogContent>
+    <DialogFooter>
+      <OkCancelButtonGroup
+        onOkClick={onConfirm}
+        onCancelClick={onDismissed}
+      />
+    </DialogFooter>
+  </Dialog>
+)
+```
+
+<Note>
+  The Dialog system includes accessibility features like focus trapping, keyboard navigation, and ARIA attributes.
+</Note>
+
+### Virtualized List
+
+**Location**: `app/src/ui/lib/list/`
+
+High-performance list rendering for large datasets:
+
+```typescript
+import { List } from './lib/list'
+
+interface ICommitListProps {
+  readonly commits: ReadonlyArray<Commit>
+  readonly onCommitSelected: (commit: Commit) => void
+}
+
+export class CommitList extends React.Component<ICommitListProps> {
+  private renderCommit = (index: number): JSX.Element => {
+    const commit = this.props.commits[index]
+    return (
+      <CommitListItem
+        commit={commit}
+        onSelect={this.props.onCommitSelected}
+      />
+    )
+  }
+  
+  public render() {
+    return (
+      <List
+        rowCount={this.props.commits.length}
+        rowHeight={50}
+        rowRenderer={this.renderCommit}
+        selectedRows={this.state.selectedRows}
+      />
+    )
+  }
+}
+```
+
+**Key Features**:
+- Only renders visible items
+- Handles keyboard navigation
+- Supports multi-selection
+- Smooth scrolling with momentum
+
+### Form Components
+
+**Location**: `app/src/ui/lib/`
+
+Type-safe form input components:
+
+```typescript
+// TextBox component
+import { TextBox } from './lib/text-box'
+
+<TextBox
+  label="Repository Name"
+  value={this.state.name}
+  onValueChanged={this.onNameChanged}
+  placeholder="my-repository"
+  disabled={this.state.loading}
+/>
+
+// Checkbox component
+import { Checkbox } from './lib/checkbox'
+
+<Checkbox
+  label="Create README"
+  value={this.state.createReadme}
+  onChange={this.onCreateReadmeChanged}
+/>
+
+// Select component
+import { Select } from './lib/select'
+
+<Select
+  label="License"
+  value={this.state.license}
+  onChange={this.onLicenseChanged}
+  options={[
+    { value: 'mit', label: 'MIT' },
+    { value: 'apache-2.0', label: 'Apache 2.0' },
+  ]}
+/>
+```
+
+## Feature Components
+
+### Repository View
+
+**File**: `app/src/ui/repository/repository.tsx`
+
+Main view when a repository is selected:
+
+```typescript
+export class RepositoryView extends React.Component<IRepositoryViewProps> {
+  public render() {
+    const { selectedTab } = this.props.state
+    
+    return (
+      <div className="repository-view">
+        <Toolbar />
+        {selectedTab === RepositorySectionTab.Changes && (
+          <ChangesView {...this.props} />
+        )}
+        {selectedTab === RepositorySectionTab.History && (
+          <HistoryView {...this.props} />
+        )}
+      </div>
+    )
+  }
+}
+```
+
+### Changes View
+
+**Directory**: `app/src/ui/changes/`
+
+Viewing and committing changes:
+
+- **changes-list.tsx**: List of modified files
+- **changes-sidebar.tsx**: File tree with change indicators
+- **commit-message.tsx**: Commit message editor with co-authors
+- **oversized-files-warning.tsx**: Warning for large files
+
+### Diff Viewer
+
+**Directory**: `app/src/ui/diff/`
+
+Syntax-highlighted diff display:
+
+```typescript
+export class Diff extends React.Component<IDiffProps> {
+  public render() {
+    const { diff } = this.props
+    
+    if (diff.kind === DiffType.Text) {
+      return <TextDiff diff={diff} />
+    } else if (diff.kind === DiffType.Image) {
+      return <ImageDiff diff={diff} />
+    } else if (diff.kind === DiffType.Binary) {
+      return <BinaryDiff />
+    } else if (diff.kind === DiffType.LargeText) {
+      return <LargeDiffWarning />
+    }
+  }
+}
+```
+
+**Features**:
+- Syntax highlighting via CodeMirror
+- Line-by-line or side-by-side view
+- Partial commit support (stage lines)
+- Image diff support (2-up, swipe, onion skin)
+
+### Branch Management
+
+**Directory**: `app/src/ui/branches/`
+
+Branch operations UI:
+
+- **branches-list.tsx**: Branch list with filtering
+- **create-branch.tsx**: Create new branch dialog
+- **rename-branch.tsx**: Rename branch dialog
+- **delete-branch.tsx**: Delete branch confirmation
+- **push-branch-commits.tsx**: Push branch dialog
+
+### History View
+
+**Directory**: `app/src/ui/history/`
+
+Commit history browser:
+
+```typescript
+export class HistoryView extends React.Component<IHistoryViewProps> {
+  public render() {
+    return (
+      <div className="history-view">
+        <CommitList
+          commits={this.props.commits}
+          selectedSHA={this.props.selectedSHA}
+          onCommitSelected={this.onCommitSelected}
+        />
+        <CommitDetails
+          commit={this.props.selectedCommit}
+          files={this.props.changedFiles}
+          diff={this.props.diff}
+        />
+      </div>
+    )
+  }
+}
+```
+
+## State Management Integration
+
+### Dispatcher Pattern
+
+**File**: `app/src/ui/dispatcher/dispatcher.ts`
+
+Central action dispatcher decoupling UI from stores:
+
+```typescript
+export class Dispatcher {
+  public constructor(
+    private readonly appStore: AppStore,
+    private readonly statsStore: StatsStore
+  ) {}
+  
+  // Repository actions
+  public async loadRepository(repository: Repository): Promise<void> {
+    await this.appStore.loadRepository(repository)
+  }
+  
+  // Commit actions
+  public async commitIncludedChanges(
+    repository: Repository,
+    message: ICommitMessage
+  ): Promise<void> {
+    await this.appStore.commitIncludedChanges(repository, message)
+    this.statsStore.recordCommit()
+  }
+  
+  // Branch actions
+  public async createBranch(
+    repository: Repository,
+    name: string,
+    startPoint: string
+  ): Promise<void> {
+    await this.appStore.createBranch(repository, name, startPoint)
+  }
+}
+```
+
+<Info>
+  Components never directly call store methods. All actions go through the Dispatcher, providing a clear audit trail and easier testing.
+</Info>
+
+### Props vs State
+
+**Convention**:
+- **Props**: Data from parent or stores (readonly)
+- **Local State**: UI-only state (form inputs, open/closed states)
+
+```typescript
+interface IMyComponentProps {
+  readonly repository: Repository  // From parent
+  readonly branches: ReadonlyArray<Branch>  // From store
+  readonly dispatcher: Dispatcher  // Dependency injection
+}
+
+interface IMyComponentState {
+  readonly filterText: string  // Local UI state
+  readonly isExpanded: boolean  // Local UI state
+}
+```
+
+## Styling
+
+### SCSS Modules
+
+**Location**: `app/styles/`
+
+Component-specific styles:
+
+```scss
+// app/styles/ui/_changes.scss
+.changes-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  
+  .changes-sidebar {
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .commit-message {
+    border-top: 1px solid var(--box-border-color);
+    padding: var(--spacing);
+  }
+}
+```
+
+### CSS Variables
+
+Theme-aware styling:
+
+```css
+:root {
+  --background-color: #ffffff;
+  --text-color: #24292e;
+  --box-border-color: #e1e4e8;
+}
+
+[data-theme='dark'] {
+  --background-color: #1f2428;
+  --text-color: #d1d5da;
+  --box-border-color: #444d56;
+}
+```
+
+## Accessibility
+
+### ARIA Attributes
+
+```typescript
+<button
+  role="button"
+  aria-label="Create new branch"
+  aria-pressed={this.state.isOpen}
+  onClick={this.onCreateBranch}
+>
+  New Branch
+</button>
+```
+
+### Keyboard Navigation
+
+- **Tab**: Focus navigation
+- **Arrow keys**: List navigation
+- **Enter/Space**: Activate buttons
+- **Escape**: Close dialogs
+- **Cmd/Ctrl+shortcuts**: Menu actions
+
+### Focus Management
+
+**File**: `app/src/ui/lib/focus-container.tsx`
+
+Manages focus within a component:
+
+```typescript
+import { FocusContainer } from './lib/focus-container'
+
+<FocusContainer onFocusOut={this.onFocusLost}>
+  <input ref={this.inputRef} />
+</FocusContainer>
+```
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+  <Card title="React.memo" icon="memory">
+    Memoize expensive pure components
+  </Card>
+  <Card title="shouldComponentUpdate" icon="bolt">
+    Prevent unnecessary re-renders
+  </Card>
+  <Card title="Lazy Loading" icon="spinner">
+    Code-split large feature components
+  </Card>
+  <Card title="Virtualization" icon="list">
+    Render only visible list items
+  </Card>
+</CardGroup>
+
+### Memoization Example
+
+```typescript
+import memoizeOne from 'memoize-one'
+
+export class MyComponent extends React.Component {
+  private getFilteredItems = memoizeOne(
+    (items: ReadonlyArray<Item>, filter: string) => {
+      return items.filter(item => item.name.includes(filter))
+    }
+  )
+  
+  public render() {
+    const filtered = this.getFilteredItems(this.props.items, this.state.filter)
+    return <ListView items={filtered} />
+  }
+}
+```
+
+## Testing Components
+
+### Unit Tests
+
+```typescript
+import { shallow } from 'enzyme'
+import { Button } from '../lib/button'
+
+describe('Button', () => {
+  it('calls onClick when clicked', () => {
+    const onClick = jest.fn()
+    const wrapper = shallow(
+      <Button onClick={onClick}>Click me</Button>
+    )
+    
+    wrapper.find('button').simulate('click')
+    expect(onClick).toHaveBeenCalled()
+  })
+})
+```
+
+## Component Lifecycle
+
+### Mounting
+
+1. `constructor()` - Initialize state
+2. `render()` - Return JSX
+3. `componentDidMount()` - Fetch data, subscribe to events
+
+### Updating
+
+1. `shouldComponentUpdate()` - Optimize rendering
+2. `render()` - Re-render with new props/state
+3. `componentDidUpdate()` - React to changes
+
+### Unmounting
+
+1. `componentWillUnmount()` - Cleanup subscriptions, timers
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="State Management" href="/architecture/state-management">
+    Learn how data flows through components
+  </Card>
+  <Card title="Electron Structure" href="/architecture/electron-structure">
+    Understand the process architecture
+  </Card>
+</CardGroup>

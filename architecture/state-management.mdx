@@ -1,0 +1,704 @@
+---
+title: 'State Management'
+description: 'Application state architecture and store patterns in GitHub Desktop'
+---
+
+GitHub Desktop uses a custom store-based architecture for state management, centered around a large central store coordinating multiple specialized stores.
+
+## Store Architecture
+
+**Location**: `app/src/lib/stores/`
+
+The store layer manages all application state and coordinates data flow between the UI and business logic.
+
+<CardGroup cols={2}>
+  <Card title="AppStore" icon="database">
+    Central store coordinating all application state (~8,700 lines)
+  </Card>
+  <Card title="GitStore" icon="code-branch">
+    Per-repository Git state and operations
+  </Card>
+  <Card title="RepositoriesStore" icon="folder">
+    Repository list and metadata persistence
+  </Card>
+  <Card title="AccountsStore" icon="user">
+    User accounts and authentication tokens
+  </Card>
+</CardGroup>
+
+## State Interfaces
+
+### IAppState
+
+**File**: `app/src/lib/app-state.ts`
+
+The central state interface defining all application state:
+
+```typescript
+export interface IAppState {
+  // User accounts
+  readonly accounts: ReadonlyArray<Account>
+  
+  // Repository management
+  readonly repositories: ReadonlyArray<Repository | CloningRepository>
+  readonly recentRepositories: ReadonlyArray<number>
+  readonly selectedState: PossibleSelections | null
+  
+  // UI state
+  readonly windowState: WindowState
+  readonly windowZoomFactor: number
+  readonly currentPopup: Popup | null
+  readonly currentBanner: Banner | null
+  readonly currentFoldout: Foldout | null
+  
+  // Sign-in flow
+  readonly signInState: SignInState | null
+  
+  // Theme
+  readonly selectedTheme: ApplicationTheme
+  
+  // Repository-specific state cache
+  readonly localRepositoryStateLookup: Map<number, ILocalRepositoryState>
+}
+
+export type PossibleSelections =
+  | {
+      type: SelectionType.Repository
+      repository: Repository
+      state: IRepositoryState
+    }
+  | {
+      type: SelectionType.CloningRepository
+      repository: CloningRepository
+      progress: ICloneProgress
+    }
+  | { type: SelectionType.MissingRepository; repository: Repository }
+```
+
+### IRepositoryState
+
+**File**: `app/src/lib/app-state.ts`
+
+State for a single repository:
+
+```typescript
+export interface IRepositoryState {
+  // Git state
+  readonly branchesState: IBranchesState
+  readonly commitLookup: Map<string, Commit>
+  readonly localCommitSHAs: ReadonlyArray<string>
+  readonly aheadBehind: IAheadBehind | null
+  readonly remote: IRemote | null
+  
+  // Working directory
+  readonly workingDirectory: WorkingDirectoryStatus
+  readonly commitMessage: ICommitMessage
+  
+  // History
+  readonly commitSelection: CommitSelection
+  readonly selectedSection: RepositorySectionTab
+  
+  // Pull requests
+  readonly currentPullRequest: PullRequest | null
+  readonly pullRequestSuggestedNextAction: PullRequestSuggestedNextAction | null
+  
+  // Multi-commit operations (rebase, cherry-pick)
+  readonly multiCommitOperationState: IMultiCommitOperationState | null
+  
+  // Conflicts
+  readonly conflictState: ConflictState | null
+}
+
+export interface IBranchesState {
+  readonly tip: Tip
+  readonly currentBranch: Branch | null
+  readonly defaultBranch: Branch | null
+  readonly allBranches: ReadonlyArray<Branch>
+  readonly recentBranches: ReadonlyArray<Branch>
+}
+```
+
+<Info>
+  State interfaces are deeply readonly to prevent accidental mutations. New state is created via immutable updates.
+</Info>
+
+## AppStore
+
+**File**: `app/src/lib/stores/app-store.ts` (8,717 lines)
+
+The central store orchestrating all application state:
+
+```typescript
+export class AppStore extends BaseStore {
+  private readonly repositories: RepositoriesStore
+  private readonly accounts: AccountsStore
+  private readonly gitStores = new Map<number, GitStore>()
+  private readonly pullRequestCoordinator: PullRequestCoordinator
+  
+  private state: IAppState = {
+    accounts: [],
+    repositories: [],
+    recentRepositories: [],
+    selectedState: null,
+    windowState: WindowState.Normal,
+    windowZoomFactor: 1,
+    currentPopup: null,
+    currentBanner: null,
+    currentFoldout: null,
+    signInState: null,
+    selectedTheme: ApplicationTheme.System,
+    localRepositoryStateLookup: new Map(),
+  }
+  
+  public constructor(
+    private readonly dispatcher: Dispatcher,
+    private readonly statsStore: StatsStore
+  ) {
+    super()
+    
+    this.repositories = new RepositoriesStore()
+    this.accounts = new AccountsStore()
+    this.pullRequestCoordinator = new PullRequestCoordinator(this)
+  }
+  
+  public getState(): IAppState {
+    return this.state
+  }
+  
+  private emitUpdate() {
+    this.emitter.emit('did-update', this.state)
+  }
+}
+```
+
+### State Updates
+
+State updates follow an immutable pattern:
+
+```typescript
+export class AppStore extends BaseStore {
+  // Update state immutably
+  private updateState(update: Partial<IAppState>) {
+    this.state = { ...this.state, ...update }
+    this.emitUpdate()
+  }
+  
+  // Update repository-specific state
+  private updateRepositoryState(
+    repository: Repository,
+    update: Partial<IRepositoryState>
+  ) {
+    const currentState = this.getRepositoryState(repository)
+    const newState = { ...currentState, ...update }
+    
+    this.state = {
+      ...this.state,
+      localRepositoryStateLookup: new Map(
+        this.state.localRepositoryStateLookup
+      ).set(repository.id, newState),
+    }
+    
+    this.emitUpdate()
+  }
+}
+```
+
+### Repository Operations
+
+```typescript
+export class AppStore extends BaseStore {
+  // Select a repository
+  public async selectRepository(repository: Repository): Promise<void> {
+    // Get or create GitStore for this repository
+    const gitStore = this.getOrCreateGitStore(repository)
+    
+    // Load repository state
+    const state = await this.loadRepositoryState(repository, gitStore)
+    
+    // Update selected state
+    this.updateState({
+      selectedState: {
+        type: SelectionType.Repository,
+        repository,
+        state,
+      },
+    })
+    
+    // Start background refresh
+    this.refreshRepository(repository)
+  }
+  
+  // Refresh repository data
+  private async refreshRepository(repository: Repository): Promise<void> {
+    const gitStore = this.getGitStore(repository)
+    
+    // Fetch latest data in parallel
+    await Promise.all([
+      gitStore.loadStatus(),
+      gitStore.loadBranches(),
+      gitStore.loadAheadBehind(),
+      this.pullRequestCoordinator.refresh(repository),
+    ])
+  }
+}
+```
+
+## GitStore
+
+**File**: `app/src/lib/stores/git-store.ts` (1,400+ lines)
+
+Manages Git state for a single repository:
+
+```typescript
+export class GitStore {
+  private readonly repository: Repository
+  private readonly operationQueue: OperationQueue
+  
+  private tip: Tip = { kind: TipState.Unknown }
+  private branches: ReadonlyArray<Branch> = []
+  private status: WorkingDirectoryStatus | null = null
+  
+  public constructor(repository: Repository) {
+    this.repository = repository
+    this.operationQueue = new OperationQueue()
+  }
+  
+  // Load working directory status
+  public async loadStatus(): Promise<WorkingDirectoryStatus> {
+    const status = await getStatus(this.repository)
+    this.status = status
+    this.emitUpdate()
+    return status
+  }
+  
+  // Load branches
+  public async loadBranches(): Promise<ReadonlyArray<Branch>> {
+    const branches = await getBranches(this.repository)
+    this.branches = branches
+    this.emitUpdate()
+    return branches
+  }
+  
+  // Get current branch
+  public getCurrentBranch(): Branch | null {
+    if (this.tip.kind === TipState.Valid) {
+      return this.tip.branch
+    }
+    return null
+  }
+}
+```
+
+### Operation Queue
+
+Serializes Git operations to prevent conflicts:
+
+```typescript
+export class OperationQueue {
+  private queue: Array<() => Promise<any>> = []
+  private running = false
+  
+  public async enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await operation()
+          resolve(result)
+        } catch (error) {
+          reject(error)
+        }
+      })
+      
+      this.processQueue()
+    })
+  }
+  
+  private async processQueue() {
+    if (this.running || this.queue.length === 0) {
+      return
+    }
+    
+    this.running = true
+    
+    while (this.queue.length > 0) {
+      const operation = this.queue.shift()!
+      await operation()
+    }
+    
+    this.running = false
+  }
+}
+```
+
+<Note>
+  The operation queue ensures Git operations execute serially, preventing race conditions and repository corruption.
+</Note>
+
+## Specialized Stores
+
+### RepositoriesStore
+
+**File**: `app/src/lib/stores/repositories-store.ts`
+
+Persists repository list to local database:
+
+```typescript
+export class RepositoriesStore {
+  private readonly db: RepositoriesDatabase
+  private repositories: ReadonlyArray<Repository> = []
+  
+  public async loadRepositories(): Promise<ReadonlyArray<Repository>> {
+    this.repositories = await this.db.repositories.toArray()
+    return this.repositories
+  }
+  
+  public async addRepository(path: string): Promise<Repository> {
+    const repository = new Repository(path, Date.now())
+    await this.db.repositories.add(repository)
+    this.repositories = [...this.repositories, repository]
+    this.emitUpdate()
+    return repository
+  }
+  
+  public async removeRepository(repository: Repository): Promise<void> {
+    await this.db.repositories.delete(repository.id)
+    this.repositories = this.repositories.filter(r => r.id !== repository.id)
+    this.emitUpdate()
+  }
+}
+```
+
+### AccountsStore
+
+**File**: `app/src/lib/stores/accounts-store.ts`
+
+Manages user accounts and tokens:
+
+```typescript
+export class AccountsStore {
+  private accounts: ReadonlyArray<Account> = []
+  
+  public async loadAccounts(): Promise<ReadonlyArray<Account>> {
+    // Load accounts from secure storage
+    const accounts = await loadAccountsFromKeychain()
+    this.accounts = accounts
+    this.emitUpdate()
+    return accounts
+  }
+  
+  public async addAccount(account: Account): Promise<void> {
+    // Store token securely
+    await storeToken(account.endpoint, account.token)
+    
+    this.accounts = [...this.accounts, account]
+    this.emitUpdate()
+  }
+  
+  public getAccountForEndpoint(endpoint: string): Account | null {
+    return this.accounts.find(a => a.endpoint === endpoint) || null
+  }
+}
+```
+
+### PullRequestStore
+
+**File**: `app/src/lib/stores/pull-request-store.ts`
+
+Caches pull request data:
+
+```typescript
+export class PullRequestStore {
+  private readonly cache = new Map<number, PullRequest>()
+  
+  public async fetchPullRequest(
+    repository: RepositoryWithGitHubRepository,
+    number: number
+  ): Promise<PullRequest> {
+    // Check cache first
+    const cached = this.cache.get(number)
+    if (cached && !this.isStale(cached)) {
+      return cached
+    }
+    
+    // Fetch from API
+    const api = new API(repository.gitHubRepository.endpoint)
+    const pr = await api.fetchPullRequest(repository.owner, repository.name, number)
+    
+    // Update cache
+    this.cache.set(number, pr)
+    return pr
+  }
+}
+```
+
+### CommitStatusStore
+
+**File**: `app/src/lib/stores/commit-status-store.ts`
+
+Tracks CI/CD check status:
+
+```typescript
+export class CommitStatusStore {
+  private readonly statusCache = new Map<string, ICombinedRefCheck>()
+  
+  public async fetchCommitStatus(
+    repository: RepositoryWithGitHubRepository,
+    sha: string
+  ): Promise<ICombinedRefCheck> {
+    // Fetch status from GitHub API
+    const api = new API(repository.gitHubRepository.endpoint)
+    const status = await api.fetchCombinedRefCheck(repository.owner, repository.name, sha)
+    
+    this.statusCache.set(sha, status)
+    this.emitUpdate()
+    return status
+  }
+  
+  public subscribeToStatus(
+    repository: RepositoryWithGitHubRepository,
+    sha: string,
+    callback: StatusCallBack
+  ): Disposable {
+    // Subscribe to status updates
+    return this.emitter.on(`status:${sha}`, callback)
+  }
+}
+```
+
+## State Persistence
+
+### Local Storage
+
+UI preferences stored in localStorage:
+
+```typescript
+export function saveWindowState(state: WindowState): void {
+  localStorage.setItem('window-state', JSON.stringify(state))
+}
+
+export function loadWindowState(): WindowState | null {
+  const json = localStorage.getItem('window-state')
+  return json ? JSON.parse(json) : null
+}
+```
+
+### IndexedDB
+
+Structured data stored in IndexedDB via Dexie:
+
+```typescript
+import Dexie from 'dexie'
+
+export class RepositoriesDatabase extends Dexie {
+  public repositories: Dexie.Table<Repository, number>
+  
+  public constructor() {
+    super('RepositoriesDatabase')
+    
+    this.version(1).stores({
+      repositories: '++id,path,lastOpened',
+    })
+    
+    this.repositories = this.table('repositories')
+  }
+}
+```
+
+### Secure Storage
+
+Sensitive data (tokens) stored in system keychain:
+
+```typescript
+import * as keytar from 'keytar'
+
+export async function storeToken(
+  endpoint: string,
+  token: string
+): Promise<void> {
+  await keytar.setPassword('GitHub Desktop', endpoint, token)
+}
+
+export async function loadToken(endpoint: string): Promise<string | null> {
+  return await keytar.getPassword('GitHub Desktop', endpoint)
+}
+```
+
+## Event System
+
+### Store Events
+
+Stores emit events when state changes:
+
+```typescript
+import { Emitter, Disposable } from 'event-kit'
+
+export class BaseStore {
+  protected readonly emitter = new Emitter()
+  
+  public onDidUpdate(callback: (state: any) => void): Disposable {
+    return this.emitter.on('did-update', callback)
+  }
+  
+  protected emitUpdate() {
+    this.emitter.emit('did-update', this.getState())
+  }
+}
+```
+
+### Component Subscriptions
+
+Components subscribe to store updates:
+
+```typescript
+export class MyComponent extends React.Component {
+  private subscription: Disposable | null = null
+  
+  public componentDidMount() {
+    this.subscription = this.props.appStore.onDidUpdate(state => {
+      this.setState(state)
+    })
+  }
+  
+  public componentWillUnmount() {
+    this.subscription?.dispose()
+  }
+}
+```
+
+## Derived State
+
+### Memoized Selectors
+
+Derived state computed on-demand:
+
+```typescript
+import memoizeOne from 'memoize-one'
+
+export class AppStore extends BaseStore {
+  // Memoized selector for filtered branches
+  private getFilteredBranches = memoizeOne(
+    (
+      branches: ReadonlyArray<Branch>,
+      filter: string
+    ): ReadonlyArray<Branch> => {
+      return branches.filter(b =>
+        b.name.toLowerCase().includes(filter.toLowerCase())
+      )
+    }
+  )
+  
+  public getVisibleBranches(filter: string): ReadonlyArray<Branch> {
+    const state = this.getRepositoryState(this.selectedRepository)
+    return this.getFilteredBranches(state.branchesState.allBranches, filter)
+  }
+}
+```
+
+## State Debugging
+
+### Dev Tools
+
+Logging state changes in development:
+
+```typescript
+if (process.env.NODE_ENV === 'development') {
+  appStore.onDidUpdate(state => {
+    console.log('State updated:', state)
+  })
+}
+```
+
+### State Snapshots
+
+Export state for debugging:
+
+```typescript
+export function exportStateSnapshot(): string {
+  const state = appStore.getState()
+  return JSON.stringify(state, null, 2)
+}
+```
+
+## Performance Optimization
+
+<CardGroup cols={2}>
+  <Card title="Memoization" icon="memory">
+    Cache expensive derived state computations
+  </Card>
+  <Card title="Batching" icon="layer-group">
+    Batch multiple updates into single render
+  </Card>
+  <Card title="Lazy Loading" icon="spinner">
+    Load repository data on-demand
+  </Card>
+  <Card title="Background Tasks" icon="clock">
+    Refresh data in background without blocking UI
+  </Card>
+</CardGroup>
+
+### Update Batching
+
+```typescript
+export class AppStore extends BaseStore {
+  private updateScheduled = false
+  
+  private scheduleUpdate() {
+    if (this.updateScheduled) {
+      return
+    }
+    
+    this.updateScheduled = true
+    
+    // Batch updates using microtask
+    Promise.resolve().then(() => {
+      this.updateScheduled = false
+      this.emitUpdate()
+    })
+  }
+}
+```
+
+## Testing Stores
+
+### Mock Stores
+
+```typescript
+import { AppStore } from '../stores/app-store'
+
+const mockAppStore = {
+  getState: () => ({
+    repositories: [],
+    accounts: [],
+    selectedState: null,
+  }),
+  onDidUpdate: jest.fn(),
+} as unknown as AppStore
+```
+
+### Store Tests
+
+```typescript
+describe('AppStore', () => {
+  it('updates state immutably', () => {
+    const store = new AppStore()
+    const oldState = store.getState()
+    
+    store.selectRepository(repository)
+    const newState = store.getState()
+    
+    expect(oldState).not.toBe(newState)
+    expect(oldState.repositories).toBe(newState.repositories) // unchanged
+  })
+})
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="UI Components" href="/architecture/ui-components">
+    See how components consume state
+  </Card>
+  <Card title="Git Operations" href="/architecture/git-operations">
+    Learn how Git data enters stores
+  </Card>
+</CardGroup>

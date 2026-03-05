@@ -1,0 +1,431 @@
+---
+title: "Pull Requests"
+description: "Learn how to create, review, and manage pull requests in GitHub Desktop"
+---
+
+## Overview
+
+Pull requests (PRs) are the primary way to propose, review, and merge changes in collaborative Git workflows. GitHub Desktop provides seamless integration with GitHub pull requests.
+
+<CardGroup cols={2}>
+  <Card title="Create PRs" icon="code-pull-request">
+    Create pull requests directly from the app
+  </Card>
+  <Card title="Review Changes" icon="magnifying-glass">
+    View PR status, checks, and reviews
+  </Card>
+  <Card title="Checkout PRs" icon="download">
+    Check out pull requests for local testing
+  </Card>
+  <Card title="Branch Management" icon="sitemap">
+    Automatically manage fork remotes for PR branches
+  </Card>
+</CardGroup>
+
+## Creating Pull Requests
+
+### Create from Branch
+
+<Steps>
+  <Step title="Push Your Branch">
+    Ensure your branch is published to the remote:
+    - Click **Publish branch** if it's not yet published
+    - Or **Push origin** if you have new commits
+  </Step>
+  <Step title="Open PR Creation">
+    Click **Branch** > **Create Pull Request** or press `Ctrl+R` (Windows/Linux) or `Cmd+R` (macOS)
+  </Step>
+  <Step title="Configure on GitHub">
+    GitHub Desktop opens your browser to GitHub's PR creation page with:
+    - Base branch pre-selected
+    - Your branch as the compare branch
+    - Commit messages pre-filled
+  </Step>
+  <Step title="Complete on GitHub">
+    On GitHub:
+    - Review the title and description
+    - Add reviewers and labels
+    - Assign to project boards
+    - Click **Create pull request**
+  </Step>
+</Steps>
+
+### Create from Fork
+
+When working on a fork:
+
+<Steps>
+  <Step title="Ensure Upstream is Set">
+    GitHub Desktop automatically detects the parent repository
+  </Step>
+  <Step title="Push to Fork">
+    Publish or push your branch to your fork
+  </Step>
+  <Step title="Create Pull Request">
+    Click **Branch** > **Create Pull Request**
+  </Step>
+  <Step title="Select Base Repository">
+    On GitHub, ensure the base repository is the upstream (not your fork)
+  </Step>
+</Steps>
+
+## Viewing Pull Request Status
+
+### PR Information in GitHub Desktop
+
+When on a branch with an associated pull request:
+
+**Branch Badge**
+- PR number and title appear in the branch dropdown
+- Visual indicator shows PR state (open, merged, closed)
+
+**Pull Request Tab**
+- Click to view PR details
+- See review status
+- Check CI/CD status
+- View merge conflicts
+
+**Checks and Reviews**
+- CI/CD check results
+- Required reviews status
+- Merge conflicts detection
+- Branch protection rules
+
+### Pull Request States
+
+<Accordion title="Open">
+  The pull request is open and under review:
+  - Green icon
+  - Can push new commits
+  - Can request reviews
+  - Can merge when ready
+</Accordion>
+
+<Accordion title="Merged">
+  The pull request has been merged:
+  - Purple merged icon
+  - Branch can be safely deleted
+  - Commits are now in the base branch
+</Accordion>
+
+<Accordion title="Closed">
+  The pull request was closed without merging:
+  - Red closed icon
+  - Changes were not merged
+  - Can be reopened if needed
+</Accordion>
+
+<Accordion title="Draft">
+  The pull request is marked as a work in progress:
+  - Gray draft icon
+  - Cannot be merged until marked ready
+  - Useful for early feedback
+</Accordion>
+
+## Checking Out Pull Requests
+
+### Check Out Your Own PR
+
+<Steps>
+  <Step title="View Pull Requests">
+    Click **Branch** > **Pull Requests**
+  </Step>
+  <Step title="Select PR">
+    Choose the pull request from the list
+  </Step>
+  <Step title="Checkout">
+    Click **Check out** to switch to the PR branch
+  </Step>
+</Steps>
+
+### Check Out Someone Else's PR
+
+For pull requests from forks:
+
+<Steps>
+  <Step title="Open PR List">
+    Click **Branch** > **Pull Requests**
+  </Step>
+  <Step title="Find PR">
+    Search or browse for the pull request
+  </Step>
+  <Step title="Checkout from Fork">
+    Click **Check out**
+    - GitHub Desktop automatically adds a remote for the fork
+    - Downloads the branch
+    - Switches to the PR branch
+  </Step>
+</Steps>
+
+<Info>
+GitHub Desktop automatically manages fork remotes using the prefix `github-desktop-` to keep your remote list clean.
+</Info>
+
+### Fork Remote Management
+
+From the technical documentation:
+
+```typescript
+// GitHub Desktop uses a magic prefix for fork remotes
+export const ForkedRemotePrefix = 'github-desktop-'
+
+// Remotes are cleaned up when PRs are closed
+function forkedRemotesToDelete(
+  remotes: ReadonlyArray<IRemote>,
+  openPullRequests: ReadonlyArray<PullRequest>
+): ReadonlyArray<IRemote> {
+  const forkedRemotes = remotes.filter(remote =>
+    remote.name.startsWith(ForkedRemotePrefix)
+  )
+  
+  const remotesOfPullRequests = new Set<string>()
+  openPullRequests.forEach(openPullRequest => {
+    const { gitHubRepository } = openPullRequest.head
+    if (gitHubRepository?.cloneURL) {
+      remotesOfPullRequests.add(gitHubRepository.cloneURL)
+    }
+  })
+  
+  // Delete remotes for closed PRs
+  return forkedRemotes.filter(
+    forkedRemote => !remotesOfPullRequests.has(forkedRemote.url)
+  )
+}
+```
+
+**Key Features:**
+- Automatic remote creation for fork PRs
+- Cleanup when PRs are closed
+- Prevents remote list from growing unbounded
+- Uses `github-desktop-` prefix for namespace safety
+
+<Warning>
+Do not manually create remotes starting with `github-desktop-` as they may be automatically deleted by GitHub Desktop.
+</Warning>
+
+## Updating Pull Requests
+
+### Adding Commits
+
+Add more commits to an open pull request:
+
+<Steps>
+  <Step title="Ensure You're on PR Branch">
+    Check out the pull request branch
+  </Step>
+  <Step title="Make Changes">
+    Edit files and commit as usual
+  </Step>
+  <Step title="Push Changes">
+    Click **Push origin** to update the pull request
+  </Step>
+  <Step title="Verify on GitHub">
+    The new commits appear automatically in the pull request
+  </Step>
+</Steps>
+
+### Responding to Review Comments
+
+<Steps>
+  <Step title="View Reviews">
+    Open the pull request on GitHub to see review comments
+  </Step>
+  <Step title="Make Requested Changes">
+    In GitHub Desktop, make the changes requested by reviewers
+  </Step>
+  <Step title="Commit and Push">
+    Commit your changes with a descriptive message referencing the review
+  </Step>
+  <Step title="Resolve Conversations">
+    On GitHub, mark conversations as resolved
+  </Step>
+</Steps>
+
+## CI/CD Integration
+
+GitHub Desktop shows the status of GitHub Actions and other CI checks:
+
+### Check Status Indicators
+
+- **Pending**: Yellow circle - checks are running
+- **Success**: Green checkmark - all checks passed
+- **Failure**: Red X - one or more checks failed
+- **Required**: Checks that must pass before merging
+
+### Viewing Check Details
+
+<Steps>
+  <Step title="Click PR Tab">
+    Select the pull request in GitHub Desktop
+  </Step>
+  <Step title="View Checks">
+    See all checks and their status
+  </Step>
+  <Step title="Open Details">
+    Click **View on GitHub** to see full check logs
+  </Step>
+</Steps>
+
+## Merge Conflicts in PRs
+
+When your pull request has conflicts with the base branch:
+
+<Steps>
+  <Step title="Conflict Notification">
+    GitHub Desktop shows a merge conflict indicator
+  </Step>
+  <Step title="Update from Base Branch">
+    - Click **Branch** > **Update from [base-branch]**
+    - Or merge the base branch into your PR branch
+  </Step>
+  <Step title="Resolve Conflicts">
+    Use GitHub Desktop's conflict resolution tools
+  </Step>
+  <Step title="Push Resolution">
+    Commit and push the conflict resolution
+  </Step>
+  <Step title="Merge on GitHub">
+    Once conflicts are resolved, merge the PR on GitHub
+  </Step>
+</Steps>
+
+## Suggested Next Actions
+
+After creating a pull request, GitHub Desktop suggests next actions:
+
+- **View on GitHub**: Open the PR in your browser
+- **Create another PR**: Create another pull request from a different branch
+- **Switch branches**: Continue working on another branch
+
+## Branch Protection and PR Requirements
+
+GitHub Desktop respects branch protection rules:
+
+### Protected Branch Indicators
+
+- **Required reviews**: Shows how many reviews are needed
+- **Required status checks**: Lists checks that must pass
+- **Restricted push**: Indicates if force push is blocked
+- **Admin enforcement**: Shows if admins must follow rules
+
+### Pull Request Reviews
+
+- **Approved**: Green checkmark - reviewers approved changes
+- **Changes requested**: Red X - reviewers requested changes
+- **Commented**: Gray - reviewers left comments without approval
+- **Pending**: Yellow - waiting for reviews
+
+## Draft Pull Requests
+
+Create draft pull requests for early feedback:
+
+<Steps>
+  <Step title="Create PR on GitHub">
+    After clicking **Create Pull Request** in GitHub Desktop
+  </Step>
+  <Step title="Mark as Draft">
+    On GitHub, click the dropdown next to **Create pull request** and select **Create draft pull request**
+  </Step>
+  <Step title="Work in Progress">
+    Continue making commits to the draft PR
+  </Step>
+  <Step title="Ready for Review">
+    Click **Ready for review** on GitHub when complete
+  </Step>
+</Steps>
+
+## Pull Request Templates
+
+If your repository has PR templates:
+
+1. Templates are automatically loaded when creating PRs on GitHub
+2. Fill in the template sections
+3. Templates help ensure consistent PR descriptions
+4. Common sections: Changes, Testing, Screenshots, Related Issues
+
+## Comparing Branches Before Creating PRs
+
+Preview changes before creating a pull request:
+
+<Steps>
+  <Step title="Compare to Branch">
+    Click **Branch** > **Compare to Branch**
+  </Step>
+  <Step title="Select Base Branch">
+    Choose the branch you plan to merge into
+  </Step>
+  <Step title="Review Differences">
+    See:
+    - Commits that will be included
+    - Files that changed
+    - Line-by-line diffs
+  </Step>
+  <Step title="Create PR">
+    If satisfied, create the pull request
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Tip>
+**Keep PRs focused**: Smaller, focused pull requests are easier to review and merge faster than large, complex ones.
+</Tip>
+
+1. **One Feature per PR**: Each pull request should address a single feature or bug fix
+2. **Write Clear Descriptions**: Explain what changed and why
+3. **Link to Issues**: Reference related issues with `Fixes #123` or `Relates to #456`
+4. **Request Appropriate Reviewers**: Tag reviewers who are familiar with the code
+5. **Respond to Feedback**: Address review comments promptly
+6. **Keep PRs Updated**: Regularly update from the base branch to avoid conflicts
+7. **Test Before Creating**: Ensure your changes work before opening a PR
+8. **Use Draft PRs**: Mark work-in-progress PRs as drafts
+
+## Keyboard Shortcuts
+
+| Action | Windows/Linux | macOS |
+|--------|--------------|-------|
+| Create pull request | `Ctrl+R` | `Cmd+R` |
+| View on GitHub | `Ctrl+Shift+G` | `Cmd+Shift+G` |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot Create Pull Request">
+    If you can't create a PR:
+    - **Branch not pushed**: Publish your branch first
+    - **No changes**: Ensure you have commits that differ from the base branch
+    - **Not signed in**: Sign in to your GitHub account in GitHub Desktop
+    - **No write access**: Verify you have permission to create PRs
+  </Accordion>
+  
+  <Accordion title="PR Not Showing in List">
+    If a pull request doesn't appear:
+    - Refresh the repository (**Repository** > **Fetch origin**)
+    - Ensure you're signed in to the correct GitHub account
+    - Check that the PR is for this repository (not a different fork)
+    - Verify the PR hasn't been closed or merged
+  </Accordion>
+  
+  <Accordion title="Cannot Check Out PR from Fork">
+    If checking out a fork PR fails:
+    - Check your internet connection
+    - Verify you have read access to the fork
+    - Try fetching manually: **Repository** > **Fetch origin**
+    - Check for network/proxy issues
+  </Accordion>
+  
+  <Accordion title="Check Status Not Updating">
+    If CI/CD checks don't update:
+    - Click **Repository** > **Fetch origin** to refresh
+    - Verify GitHub Actions are enabled on the repository
+    - Check if the workflow is configured correctly
+    - View the PR on GitHub for real-time status
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+- [Branches](/features/branches)
+- [Merge Conflicts](/features/merge-conflicts)
+- [Committing Changes](/features/committing-changes)
+- [Authentication](/configuration/authentication)

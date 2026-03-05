@@ -1,0 +1,381 @@
+---
+title: Dialog Component System
+description: Learn how to use GitHub Desktop's dialog component API for creating modal popups and user interactions
+---
+
+## Overview
+
+Dialogs are high-level components used to render modal popups such as preferences, repository settings, and error messages. They're built on the HTML5 `<dialog>` element and are shown as modals, constraining tab navigation within the dialog itself.
+
+## Basic Structure
+
+A typical dialog follows this structure:
+
+```jsx
+<Dialog title='Title'>
+  <TabBar>...</TabBar>
+  <DialogContent>
+    ...
+  </DialogContent>
+  <DialogFooter>
+    <OkCancelButtonGroup />
+  </DialogFooter>
+</Dialog>
+```
+
+## Dialog Component
+
+The main `Dialog` component accepts several important props:
+
+```typescript
+interface IDialogProps {
+  // Dialog title - renders a DialogHeader with icon and close button
+  readonly title?: string | JSX.Element
+  
+  // Control dismissal behavior
+  readonly backdropDismissable?: boolean  // Default: true
+  readonly dismissDisabled?: boolean       // Default: false
+  
+  // Event handlers
+  readonly onDismissed?: () => void
+  readonly onSubmit?: () => void
+  
+  // Visual styling
+  readonly type?: 'normal' | 'warning' | 'error'
+  readonly loading?: boolean
+  
+  // Form state
+  readonly disabled?: boolean
+}
+```
+
+### Example Implementation
+
+From `app/src/ui/dialog/dialog.tsx:252`:
+
+```typescript
+export class Dialog extends React.Component<DialogProps, IDialogState> {
+  public static contextType = DialogStackContext
+  public declare context: React.ContextType<typeof DialogStackContext>
+
+  public render() {
+    const className = classNames(
+      {
+        error: this.props.type === 'error',
+        warning: this.props.type === 'warning',
+      },
+      this.props.className,
+      'tooltip-host'
+    )
+
+    return (
+      <dialog
+        ref={this.onDialogRef}
+        id={this.props.id}
+        role={this.props.role}
+        onMouseDown={this.onDialogMouseDown}
+        onKeyDown={this.onKeyDown}
+        className={className}
+        {...this.getAriaAttributes()}
+        tabIndex={-1}
+      >
+        {this.renderHeader()}
+        <form onSubmit={this.onSubmit} onReset={this.onDismiss}>
+          <fieldset disabled={this.props.disabled}>
+            {this.props.children}
+          </fieldset>
+        </form>
+      </dialog>
+    )
+  }
+}
+```
+
+## Dialog Footer
+
+### OkCancelButtonGroup
+
+The `OkCancelButtonGroup` component handles platform-specific button ordering automatically:
+
+- **Windows/Linux**: Ok, Cancel
+- **macOS**: Cancel, Ok
+
+<Info>
+This follows platform conventions as outlined in [Nielsen Norman Group's research on button order](https://www.nngroup.com/articles/ok-cancel-or-cancel-ok/).
+</Info>
+
+#### Basic Usage
+
+```jsx
+<DialogFooter>
+  <OkCancelButtonGroup />
+</DialogFooter>
+```
+
+#### Customization Options
+
+From `app/src/ui/dialog/ok-cancel-button-group.tsx:5`:
+
+```typescript
+interface IOkCancelButtonGroupProps {
+  // Control destructive actions
+  readonly destructive?: boolean
+  
+  // Customize button text
+  readonly okButtonText?: string | JSX.Element
+  readonly cancelButtonText?: string | JSX.Element
+  
+  // Button state
+  readonly okButtonDisabled?: boolean
+  readonly cancelButtonDisabled?: boolean
+  
+  // Custom event handlers
+  readonly onOkButtonClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
+  readonly onCancelButtonClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
+}
+```
+
+### Destructive Dialogs
+
+<Warning>
+For destructive actions (hard to recover from), set `destructive={true}` to make the Cancel button the default.
+</Warning>
+
+```jsx
+<OkCancelButtonGroup 
+  destructive={true}
+  okButtonText="Delete"
+  cancelButtonText="Keep"
+/>
+```
+
+The `destructive` prop:
+- Makes the Cancel button the submit button (default action)
+- Prevents accidental destructive actions
+- Does not change which button triggers `onSubmit` vs `onDismissed`
+
+## Error Handling
+
+### Inline Errors
+
+Dialogs should render errors inline using the `DialogError` component rather than opening new error dialogs.
+
+From `app/src/ui/dialog/error.tsx:16`:
+
+```typescript
+export class DialogError extends React.Component {
+  public render() {
+    return (
+      <div className="dialog-banner dialog-error" role="alert">
+        <Octicon symbol={octicons.stop} />
+        <div>{this.props.children}</div>
+      </div>
+    )
+  }
+}
+```
+
+### Usage Example
+
+<Note>
+The `DialogError` component must be the first child of the Dialog element.
+</Note>
+
+```jsx
+<Dialog title='Preferences'>
+  <DialogError>
+    Could not save ignore file. Permission denied.
+  </DialogError>
+  <TabBar>...</TabBar>
+  <DialogContent>
+    ...
+  </DialogContent>
+  <DialogFooter>
+    <OkCancelButtonGroup />
+  </DialogFooter>
+</Dialog>
+```
+
+### Error Content Guidelines
+
+<Steps>
+  <Step title="Use text-based content">
+    Keep error content primarily text-based and concise.
+  </Step>
+  
+  <Step title="Omit 'Error' prefix">
+    Don't include the word "Error" - the styling makes it evident.
+  </Step>
+  
+  <Step title="Be specific">
+    Provide actionable information about what went wrong.
+  </Step>
+</Steps>
+
+## Best Practices
+
+### Content Structure
+
+**DO:** Let child components render `DialogContent`
+
+```jsx
+// Good - child renders DialogContent
+<Dialog title='Title'>
+  <TabBar>...</TabBar>
+  {this.renderActiveTab()}
+  <DialogFooter>
+    <OkCancelButtonGroup />
+  </DialogFooter>
+</Dialog>
+
+// ChildComponent.tsx
+<DialogContent>
+  my fancy content
+</DialogContent>
+```
+
+**DON'T:** Wrap children inside DialogContent
+
+```jsx
+// Bad - unnecessary nesting
+<Dialog title='Title'>
+  <TabBar>...</TabBar>
+  <DialogContent>
+    {this.renderActiveTab()}
+  </DialogContent>
+  <DialogFooter>
+    <OkCancelButtonGroup />
+  </DialogFooter>
+</Dialog>
+```
+
+### Layout Components
+
+**DO:** Use `Row` components for layout
+
+The `Row` component receives bottom margin when used as an immediate child of `DialogContent`, making it excellent for structuring content.
+
+For primary text content, use `<p>` elements instead of `Row`.
+
+## Accessibility
+
+### Focus Management
+
+Dialogs automatically manage focus based on this priority order:
+
+<Steps>
+  <Step title="Preferred focus element">
+    Element with `DialogPreferredFocusClassName` class
+  </Step>
+  
+  <Step title="Lowest positive tabIndex">
+    Element with the lowest explicit tab index
+  </Step>
+  
+  <Step title="First tabbable element">
+    First input, textarea, or tabIndex=0 element
+  </Step>
+  
+  <Step title="First submit button">
+    Default action button
+  </Step>
+  
+  <Step title="Any button">
+    Remaining focusable buttons
+  </Step>
+  
+  <Step title="Close button">
+    Dialog dismiss button
+  </Step>
+</Steps>
+
+### ARIA Attributes
+
+For alert dialogs that interrupt user workflow:
+
+```typescript
+interface IAlertDialogProps {
+  readonly role: 'alertdialog'
+  readonly ariaDescribedBy: string  // Required for alertdialog role
+}
+```
+
+## Dialog Lifecycle
+
+### Dismissal Grace Period
+
+Dialogs implement a 250ms grace period after mounting before acknowledging dismissal:
+
+```typescript
+const dismissGracePeriodMs = 250
+
+interface IDialogState {
+  // Prevents accidental dismissal during grace period
+  readonly isAppearing: boolean
+}
+```
+
+This prevents users from accidentally dismissing important dialogs that appear while they're clicking elsewhere.
+
+### Form Submission
+
+All dialogs contain a top-level form element:
+
+- **Submit**: Triggers `onSubmit` event (affirmative action)
+- **Reset**: Triggers `onDismissed` event (cancel action)
+- **Keyboard shortcuts**: Ctrl/Cmd+W or Escape dismisses the dialog
+
+## Common Patterns
+
+### Simple Confirmation Dialog
+
+```jsx
+<Dialog 
+  title="Confirm Action"
+  role="alertdialog"
+  ariaDescribedBy="confirmation-message"
+  onSubmit={this.handleConfirm}
+  onDismissed={this.handleCancel}
+>
+  <DialogContent>
+    <p id="confirmation-message">
+      Are you sure you want to proceed?
+    </p>
+  </DialogContent>
+  <DialogFooter>
+    <OkCancelButtonGroup 
+      okButtonText="Proceed"
+      cancelButtonText="Cancel"
+    />
+  </DialogFooter>
+</Dialog>
+```
+
+### Loading State
+
+```jsx
+<Dialog 
+  title="Saving Changes"
+  loading={this.state.isSaving}
+  disabled={this.state.isSaving}
+>
+  <DialogContent>
+    {/* Content */}
+  </DialogContent>
+  <DialogFooter>
+    <OkCancelButtonGroup okButtonDisabled={this.state.isSaving} />
+  </DialogFooter>
+</Dialog>
+```
+
+### Non-dismissable Dialog
+
+```jsx
+<Dialog 
+  title="Processing"
+  dismissDisabled={true}
+  backdropDismissable={false}
+>
+  {/* Content */}
+</Dialog>
+```

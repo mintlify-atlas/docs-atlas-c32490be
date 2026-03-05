@@ -1,0 +1,249 @@
+---
+title: Building GitHub Desktop
+description: Learn how to build GitHub Desktop from source for development
+---
+
+## Prerequisites
+
+Before building GitHub Desktop, ensure you have the required tools installed:
+
+- **Node.js** v20.17.0 or later
+- **Yarn** 1.21.1 or later
+- **Python** 3.9.x or later
+
+Verify your installation:
+
+```bash
+node -v
+yarn -v
+python --version
+```
+
+## Initial Setup
+
+<Steps>
+  <Step title="Fork and Clone">
+    Create a fork of `desktop/desktop` and clone it to your local machine:
+    
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/desktop.git
+    cd desktop
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required dependencies:
+    
+    <CodeGroup>
+    ```bash yarn
+    yarn
+    ```
+    
+    ```bash npm
+    npm install
+    ```
+    </CodeGroup>
+    
+    This will also run the `postinstall` script automatically to set up the development environment.
+  </Step>
+</Steps>
+
+## Build Commands
+
+### Development Build
+
+Create a development build with source maps and debugging support:
+
+<CodeGroup>
+```bash yarn
+yarn build:dev
+```
+
+```bash npm
+npm run build:dev
+```
+</CodeGroup>
+
+This command:
+1. Compiles TypeScript with development settings
+2. Bundles the application using webpack
+3. Includes source maps for debugging
+
+### Production Build
+
+Create an optimized production build:
+
+<CodeGroup>
+```bash yarn
+yarn build:prod
+```
+
+```bash npm
+npm run build:prod
+```
+</CodeGroup>
+
+<Note>
+Production builds use more memory during compilation. The `NODE_OPTIONS='--max_old_space_size=4096'` flag is automatically set to handle this.
+</Note>
+
+### Compilation Only
+
+If you only want to compile without building:
+
+<CodeGroup>
+```bash yarn
+# Development compilation
+yarn compile:dev
+
+# Production compilation
+yarn compile:prod
+```
+
+```bash npm
+# Development compilation
+npm run compile:dev
+
+# Production compilation
+npm run compile:prod
+```
+</CodeGroup>
+
+## Running the Application
+
+After building, start the application:
+
+<CodeGroup>
+```bash yarn
+yarn start
+```
+
+```bash npm
+npm start
+```
+</CodeGroup>
+
+The application will launch with:
+- Chrome DevTools for debugging
+- React DevTools (automatically installed on first run)
+- Hot reload support (press `Ctrl/Cmd+Alt+R` to reload)
+
+### Running in Production Mode
+
+To test production mode locally:
+
+<CodeGroup>
+```bash yarn
+yarn start:prod
+```
+
+```bash npm
+npm run start:prod
+```
+</CodeGroup>
+
+## Background Compilation
+
+<Note>
+When you run `yarn start`, changes are compiled automatically in the background. Simply reload the app to see your changes.
+</Note>
+
+**Exception**: Changes in the `main-process` folder require rebuilding:
+
+```bash
+yarn build:dev
+yarn start
+```
+
+## Packaging
+
+Create distributable packages:
+
+<CodeGroup>
+```bash yarn
+yarn package
+```
+
+```bash npm
+npm run package
+```
+</CodeGroup>
+
+This creates platform-specific installers in the `out` directory.
+
+## Clean Build
+
+If you encounter build issues, perform a clean build:
+
+<CodeGroup>
+```bash yarn
+# Clean and rebuild (development)
+yarn rebuild-hard:dev
+
+# Clean and rebuild (production)
+yarn rebuild-hard:prod
+```
+
+```bash npm
+# Manual clean
+npm run clean-slate
+npm run build:dev
+```
+</CodeGroup>
+
+<Warning>
+The `clean-slate` command removes `node_modules` and all build artifacts. This will require reinstalling all dependencies.
+</Warning>
+
+## Specialized Build Tasks
+
+### Generate Octicons
+
+Regenerate Octicons from the latest version:
+
+```bash
+yarn generate-octicons
+```
+
+### Validate Electron Version
+
+Ensure you're using the correct Electron version:
+
+```bash
+yarn validate-electron-version
+```
+
+### Compile Scripts
+
+Compile scripts in the `script/` directory:
+
+```bash
+yarn compile:script
+```
+
+## Build Architecture
+
+GitHub Desktop uses:
+
+- **TypeScript**: Type-safe JavaScript with strict type checking
+- **Webpack**: Module bundler for the application
+- **Electron**: Cross-platform desktop framework
+- **React**: UI component library
+
+### Build Configuration
+
+Build configurations are located in:
+- `app/webpack.development.ts` - Development webpack config
+- `app/webpack.production.ts` - Production webpack config
+- `script/tsconfig.json` - TypeScript compiler config for scripts
+- `tsconfig.json` - Main TypeScript compiler config
+
+## Troubleshooting
+
+If you encounter build issues, see the [Troubleshooting Development Issues](/contributing/troubleshooting-dev) guide.
+
+## Next Steps
+
+- Learn about [Testing](/contributing/testing)
+- Set up [Linting](/contributing/linting)
+- Configure your [Development Tools](/contributing/tooling)

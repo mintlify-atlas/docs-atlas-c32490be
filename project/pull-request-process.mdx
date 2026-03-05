@@ -1,0 +1,198 @@
+---
+title: Pull Request Process
+description: Guidelines and workflow for contributing and reviewing pull requests in GitHub Desktop
+---
+
+## Review Process
+
+GitHub Desktop follows a structured review process to ensure quality and consistency across all contributions.
+
+<Steps>
+  <Step title="Open Pull Request">
+    Contributor opens a pull request. If still in progress, create it in draft mode.
+  </Step>
+  
+  <Step title="Mark Ready">
+    When the pull request is ready, contributor marks it as ready for review.
+  </Step>
+  
+  <Step title="Initial Triage">
+    A reviewer team member adds the `ready-for-review` label and adds it to relevant release boards.
+  </Step>
+  
+  <Step title="Reviewer Assignment">
+    A reviewer with bandwidth assigns the PR to themselves and begins review.
+  </Step>
+  
+  <Step title="Provide Feedback">
+    Reviewer leaves line comments with suggestions or questions, then signals completion with a comment.
+  </Step>
+  
+  <Step title="Address Feedback">
+    Contributor responds to feedback, makes changes, and signals when ready for re-review.
+  </Step>
+  
+  <Step title="Iterate">
+    Steps 5-6 repeat until both parties are satisfied with the pull request.
+  </Step>
+  
+  <Step title="Merge">
+    Reviewer merges the pull request and deletes the branch (if applicable).
+  </Step>
+</Steps>
+
+<Info>
+Merged contributions are first published to the beta channel (weekly) before being published to production (monthly).
+</Info>
+
+## Review Outcomes
+
+GitHub's review tools coordinate feedback with two possible results:
+
+<Accordion title="Approved">
+  The contribution is ready to merge. No additional changes needed. The code meets quality standards and aligns with project goals.
+  
+  After approval, most contributions remain in this state for at least 24 hours before merging to allow the global team to provide feedback.
+</Accordion>
+
+<Accordion title="Request Changes">
+  There are items to address before merging. The reviewer provides detailed feedback on what needs to be changed.
+  
+  Reviews may take multiple iterations, especially for large contributions. This is normal and ensures high quality and thorough discussion.
+</Accordion>
+
+<Note>
+Reviews can take several iterations. Don't be discouraged - the goal is to ensure quality and resolve all outstanding questions.
+</Note>
+
+## Review Assignments
+
+The **Assignee** field indicates who "owns" the review process for a contribution.
+
+### Responsibilities
+
+- The assignee takes charge of the review process from start to finish
+- Other reviewers can add their feedback (large features often have multiple reviewers)
+- The assignee is ultimately responsible for seeing the PR through to completion
+
+### Workload Management
+
+If a reviewer is overloaded or a review has stalled:
+- The reviewer may remove themselves from the pull request
+- This signals to others that help is needed
+- Another reviewer can step in to continue the process
+
+## Review Guidelines
+
+### Everyone Reviews
+
+<Info>
+All team members are encouraged to review pull requests, even in unfamiliar areas of the codebase. This spreads knowledge across the team.
+</Info>
+
+While everyone has domain expertise, sharing the review load helps:
+- Distribute workload evenly
+- Build broader understanding of the codebase
+- Provide diverse perspectives on changes
+
+### 24-Hour Cooling Off Period
+
+After approval, most contributions remain unmerged for at least **24 hours**.
+
+**Why?**
+- The team is distributed globally across time zones
+- This ensures everyone has a chance to review and provide feedback
+- Prevents merging changes while some team members are offline
+
+**Exceptions:**
+- Critical hotfixes that need immediate deployment
+- Time-sensitive changes with explicit team agreement
+
+### No Self-Merges Without Review
+
+GitHub Desktop maintains a strong review culture. Contributors should not merge their own PRs unless there are exceptional reasons.
+
+<Accordion title="Examples of Exceptional Situations">
+  **Dependency pinning affecting CI:**
+  - [#2733](https://github.com/desktop/desktop/pull/2733) pinned a dependency that was breaking continuous integration by installing the wrong version
+  
+  **Critical packaging changes:**
+  - [#4319](https://github.com/desktop/desktop/pull/4319) fixed an unexpected packaging change on the development branch that would affect all developers
+  
+  **Requirements:**
+  - Must be called out explicitly by the person merging
+  - Must include explanation for bypassing review process
+  - Should be truly exceptional circumstances
+</Accordion>
+
+## Stale Pull Requests
+
+Reviewers monitor pull requests to ensure the review queue stays manageable.
+
+<Steps>
+  <Step title="14-Day Check">
+    After 14 days with no response from the contributor or no new commits, the reviewer returns to the pull request.
+  </Step>
+  
+  <Step title="Status Check">
+    Reviewer asks if the contributor is still interested in working on the change and indicates they can reopen later if needed.
+  </Step>
+  
+  <Step title="Resolution">
+    If agreed to put on hold, or if no feedback is received after 3 days, the pull request is closed.
+  </Step>
+</Steps>
+
+<Note>
+Closed stale PRs can be reopened later if the contributor has time to continue. This keeps the review queue focused on active work.
+</Note>
+
+## Contributing Tips
+
+### Before Submitting
+
+- Review the [Code of Conduct](https://github.com/desktop/desktop/blob/development/CODE_OF_CONDUCT.md)
+- Check the [roadmap](/project/roadmap) to understand project direction
+- Search for related issues or pull requests to avoid duplication
+- For enhancements, open an issue first to discuss the approach
+
+### Reporting Bugs
+
+**Before reporting:**
+- Search existing [bug reports](https://github.com/desktop/desktop/labels/bug)
+- Add a reaction to existing issues rather than creating duplicates
+- Add comments with additional information if relevant
+
+**When reporting:**
+- Use the [bug report template](https://github.com/desktop/desktop/issues/new?template=bug_report.yaml)
+- Include build number and operating system version
+- Provide detailed reproduction steps
+- Add log files, screenshots, or other relevant information
+
+### Suggesting Enhancements
+
+**Before suggesting:**
+- Search existing [enhancement requests](https://github.com/desktop/desktop/labels/enhancement)
+- Add reactions or comments to existing suggestions
+
+**When suggesting:**
+- Use the [feature request template](https://github.com/desktop/desktop/issues/new?template=feature_request.yaml)
+- Use a clear and descriptive title
+- Provide step-by-step description of the enhancement
+- Explain why this would be useful to GitHub Desktop users
+- Include screenshots or examples if relevant
+- List other applications with similar features if applicable
+
+### Help Wanted
+
+Look for issues labeled [`help wanted`](https://github.com/desktop/desktop/labels/help%20wanted) for good contribution opportunities.
+
+These issues:
+- Have low impact or known workarounds
+- Should be addressed
+- Have narrow scope and easy reproduction steps
+- Can be worked on independently
+
+<Info>
+Comment on the issue to let the core team and community know you're interested in working on it.
+</Info>

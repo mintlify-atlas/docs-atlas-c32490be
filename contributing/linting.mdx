@@ -1,0 +1,316 @@
+---
+title: Linting and Code Quality
+description: Learn how to use ESLint and Prettier to maintain code quality
+---
+
+## Overview
+
+GitHub Desktop uses automated linting tools to maintain code quality and consistency:
+
+- **[ESLint](https://eslint.org/)** - JavaScript/TypeScript linter with custom rules
+- **[Prettier](https://prettier.io/)** - Opinionated code formatter
+- **[markdownlint](https://github.com/DavidAnson/markdownlint)** - Markdown file linter
+
+These tools integrate with most editors to provide real-time feedback. See [Tooling](/contributing/tooling) for editor setup.
+
+## Running Linting Checks
+
+### Check All Files
+
+Run all linting checks:
+
+<CodeGroup>
+```bash yarn
+yarn lint
+```
+
+```bash npm
+npm run lint
+```
+</CodeGroup>
+
+This runs:
+1. Prettier formatting checks
+2. ESLint source code checks
+3. TypeScript compilation checks
+
+### Auto-Fix Issues
+
+Automatically fix linting issues where possible:
+
+<CodeGroup>
+```bash yarn
+yarn lint:fix
+```
+
+```bash npm
+npm run lint:fix
+```
+</CodeGroup>
+
+<Note>
+Some issues cannot be automatically fixed and will require manual correction.
+</Note>
+
+## Specific Linting Commands
+
+### Prettier
+
+Check formatting:
+
+<CodeGroup>
+```bash yarn
+yarn prettier
+```
+
+```bash npm
+npm run prettier
+```
+</CodeGroup>
+
+Fix formatting:
+
+<CodeGroup>
+```bash yarn
+yarn prettier --write
+```
+
+```bash npm
+npm run prettier -- --write
+```
+</CodeGroup>
+
+Prettier checks these file types:
+- TypeScript/JavaScript: `.ts`, `.tsx`, `.js`, `.jsx`
+- Styles: `.scss`
+- Config: `.json`, `.yaml`, `.yml`
+- Markup: `.html`
+
+### ESLint
+
+Check source code:
+
+<CodeGroup>
+```bash yarn
+yarn lint:src
+```
+
+```bash npm
+npm run lint:src
+```
+</CodeGroup>
+
+Fix ESLint issues:
+
+<CodeGroup>
+```bash yarn
+yarn lint:src:fix
+```
+
+```bash npm
+npm run lint:src:fix
+```
+</CodeGroup>
+
+ESLint checks:
+- `app/src/` - Application source code
+- `app/test/` - Test files
+- `script/` - Build scripts
+- `eslint-rules/` - Custom ESLint rules
+- `changelog.json` - Changelog entries
+
+### Markdown Linting
+
+Check Markdown files:
+
+<CodeGroup>
+```bash yarn
+yarn markdownlint
+```
+
+```bash npm
+npm run markdownlint
+```
+</CodeGroup>
+
+## ESLint Configuration
+
+ESLint is configured in `.eslintrc.yml` with:
+
+### Parser and Plugins
+
+- **Parser**: `@typescript-eslint/parser` for TypeScript support
+- **Plugins**:
+  - `@typescript-eslint` - TypeScript-specific rules
+  - `react` - React best practices
+  - `json` - JSON file linting
+  - `jsdoc` - JSDoc comment validation
+  - `github` - GitHub-specific conventions
+
+### Key Rules
+
+<CodeGroup>
+```yaml Custom Rules
+# Security and best practices
+insecure-random: error
+react-no-unbound-dispatcher-props: error
+react-readonly-props-and-state: error
+no-loosely-typed-webcontents-ipc: error
+```
+
+```yaml TypeScript Rules
+# TypeScript conventions
+@typescript-eslint/naming-convention: error
+@typescript-eslint/consistent-type-assertions: error
+@typescript-eslint/explicit-member-accessibility: error
+@typescript-eslint/no-unused-vars: error
+@typescript-eslint/member-ordering: error
+```
+
+```yaml React Rules
+# React conventions
+react/jsx-boolean-value: error
+react/jsx-key: error
+react/jsx-no-bind: error
+react/no-string-refs: error
+react/no-unused-state: error
+```
+</CodeGroup>
+
+### Naming Conventions
+
+```typescript
+// ✅ Interfaces must start with 'I'
+interface IUserData { }
+
+// ✅ Classes use PascalCase
+class UserManager { }
+
+// ❌ Reserved words as variable names
+const string = 'test' // Error
+const Number = 42     // Error
+```
+
+### Import Restrictions
+
+```typescript
+// ❌ Don't import ipcRenderer directly
+import { ipcRenderer } from 'electron'
+
+// ✅ Use strongly-typed wrapper instead
+import * as ipcRenderer from 'ipc-renderer'
+```
+
+### No Default Exports
+
+```typescript
+// ❌ Default exports are forbidden
+export default function MyComponent() { }
+
+// ✅ Use named exports
+export function MyComponent() { }
+```
+
+## Custom ESLint Rules
+
+GitHub Desktop includes custom ESLint rules in `eslint-rules/`:
+
+- **`insecure-random`** - Prevents use of `Math.random()` for security-sensitive code
+- **`react-no-unbound-dispatcher-props`** - Ensures proper dispatcher prop binding
+- **`react-readonly-props-and-state`** - Enforces readonly props and state
+- **`react-proper-lifecycle-methods`** - Validates React lifecycle methods
+- **`no-loosely-typed-webcontents-ipc`** - Enforces typed IPC communication
+
+Test custom rules:
+
+<CodeGroup>
+```bash yarn
+yarn test:eslint
+```
+
+```bash npm
+npm run test:eslint
+```
+</CodeGroup>
+
+## Editor Integration
+
+Most editors support real-time linting. Install these extensions:
+
+### Visual Studio Code
+
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+
+### Other Editors
+
+See [Tooling](/contributing/tooling) for configuration instructions.
+
+## Pre-Commit Checks
+
+<Note>
+Linting checks run automatically in CI on every pull request.
+</Note>
+
+Run checks locally before committing:
+
+```bash
+yarn lint
+```
+
+## Continuous Integration
+
+All pull requests must pass linting checks before merging. CI runs:
+
+1. **Prettier** - Formatting validation
+2. **ESLint** - Code quality checks
+3. **TypeScript** - Type checking
+4. **Custom rules** - Project-specific validations
+
+<Warning>
+Pull requests that fail linting checks cannot be merged. Always run `yarn lint` before pushing.
+</Warning>
+
+## Common Issues
+
+### Prettier Conflicts
+
+If Prettier and ESLint conflict:
+
+```bash
+# Check ESLint config against Prettier
+yarn eslint-check
+```
+
+The `eslint-config-prettier` plugin disables conflicting ESLint rules.
+
+### Cache Issues
+
+ESLint uses caching for performance. Clear the cache if you encounter stale errors:
+
+```bash
+rm -rf .eslintcache
+yarn lint
+```
+
+### TypeScript Errors
+
+ESLint requires TypeScript to compile. If you see parsing errors:
+
+```bash
+# Check TypeScript compilation
+yarn check:eslint
+```
+
+## Configuration Files
+
+- `.eslintrc.yml` - ESLint configuration
+- `.prettierrc` - Prettier configuration (if present)
+- `.markdownlint.js` - Markdown linting rules
+- `eslint-rules/` - Custom ESLint rule implementations
+
+## Next Steps
+
+- Configure your [Development Tools](/contributing/tooling)
+- Learn about [Testing](/contributing/testing)
+- Review [Building](/contributing/building) the application

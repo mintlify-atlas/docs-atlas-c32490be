@@ -1,0 +1,740 @@
+---
+title: 'Git Operations'
+description: 'Git integration layer and operations in GitHub Desktop'
+---
+
+GitHub Desktop's Git layer provides a comprehensive TypeScript wrapper around Git commands using the [dugite](https://github.com/desktop/dugite) library, which embeds a portable Git distribution.
+
+## Git Layer Architecture
+
+**Location**: `app/src/lib/git/` (57+ operation modules)
+
+The Git layer is organized into focused modules, each handling specific Git operations:
+
+```
+app/src/lib/git/
+├── core.ts              # Low-level Git execution
+├── add.ts               # Stage files
+├── branch.ts            # Branch operations
+├── checkout.ts          # Checkout branches/commits
+├── cherry-pick.ts       # Cherry-pick commits
+├── clone.ts             # Clone repositories
+├── commit.ts            # Create commits
+├── config.ts            # Git config read/write
+├── diff.ts              # Generate diffs
+├── fetch.ts             # Fetch from remotes
+├── merge.ts             # Merge branches
+├── push.ts              # Push to remotes
+├── rebase.ts            # Rebase operations
+├── reset.ts             # Reset working directory
+├── status.ts            # Working directory status
+└── [40+ more modules]/
+```
+
+<Info>
+  Each module exports focused functions for specific Git operations, making the codebase maintainable and testable.
+</Info>
+
+## Core Execution Layer
+
+### Git Execution
+
+**File**: `app/src/lib/git/core.ts`
+
+The foundation of all Git operations:
+
+```typescript
+import { exec, GitError as DugiteError, IGitResult } from 'dugite'
+
+export interface IGitExecutionOptions {
+  readonly successExitCodes?: ReadonlySet<number>
+  readonly expectedErrors?: ReadonlySet<DugiteError>
+  readonly trackLFSProgress?: boolean
+  readonly isBackgroundTask?: boolean
+  readonly onHookProgress?: (progress: HookProgress) => void
+  readonly onTerminalOutputAvailable?: TerminalOutputCallback
+}
+
+export interface IGitResult extends DugiteResult {
+  readonly gitError: DugiteError | null
+  readonly gitErrorDescription: string | null
+}
+
+export async function git(
+  args: ReadonlyArray<string>,
+  path: string,
+  options?: IGitExecutionOptions
+): Promise<IGitResult> {
+  const result = await exec(args, path, options)
+  
+  // Parse Git errors
+  const gitError = result.exitCode !== 0
+    ? parseError(result.stderr)
+    : null
+  
+  return {
+    ...result,
+    gitError,
+    gitErrorDescription: getErrorDescription(gitError),
+  }
+}
+```
+
+**Key Features**:
+- Type-safe error handling
+- Progress tracking for long operations
+- Hook interception (pre-commit, post-commit, etc.)
+- Terminal output streaming
+- LFS progress monitoring
+
+### Error Handling
+
+```typescript
+export enum GitError {
+  SSHKeyAuditUnverified,
+  RemoteDisconnection,
+  HostDown,
+  RebaseConflicts,
+  MergeConflicts,
+  HTTPSAuthenticationFailed,
+  SSHAuthenticationFailed,
+  // ... 50+ error types
+}
+
+function parseError(stderr: string): GitError | null {
+  // Parse Git error messages
+  if (stderr.includes('could not resolve host')) {
+    return GitError.HostDown
+  }
+  if (stderr.includes('conflict')) {
+    return GitError.MergeConflicts
+  }
+  // ... more patterns
+}
+```
+
+<Note>
+  Git error parsing provides user-friendly error messages and enables smart error recovery strategies.
+</Note>
+
+## Common Operations
+
+### Status
+
+**File**: `app/src/lib/git/status.ts`
+
+Get working directory status:
+
+```typescript
+export async function getStatus(
+  repository: Repository
+): Promise<WorkingDirectoryStatus> {
+  const result = await git(
+    ['status', '--porcelain=v2', '--branch', '--untracked-files=all'],
+    repository.path,
+    { successExitCodes: new Set([0, 128]) }
+  )
+  
+  return parseStatus(result.stdout)
+}
+
+function parseStatus(output: string): WorkingDirectoryStatus {
+  const files: WorkingDirectoryFileChange[] = []
+  
+  for (const line of output.split('\n')) {
+    if (line.startsWith('1 ')) {
+      // Ordinary changed entry
+      files.push(parseOrdinaryEntry(line))
+    } else if (line.startsWith('2 ')) {
+      // Renamed/copied entry
+      files.push(parseRenamedEntry(line))
+    } else if (line.startsWith('u ')) {
+      // Unmerged entry (conflict)
+      files.push(parseUnmergedEntry(line))
+    } else if (line.startsWith('? ')) {
+      // Untracked file
+      files.push(parseUntrackedEntry(line))
+    }
+  }
+  
+  return new WorkingDirectoryStatus(files, true)
+}
+```
+
+### Commit
+
+**File**: `app/src/lib/git/commit.ts`
+
+Create commits with full metadata:
+
+```typescript
+export async function createCommit(
+  repository: Repository,
+  message: string,
+  files: ReadonlyArray<WorkingDirectoryFileChange>,
+  options?: {
+    readonly amend?: boolean
+    readonly coAuthors?: ReadonlyArray<Author>
+  }
+): Promise<boolean> {
+  // Stage files
+  await git(['add', '--', ...files.map(f => f.path)], repository.path)
+  
+  // Build commit message
+  let fullMessage = message
+  if (options?.coAuthors) {
+    fullMessage += '\n\n'
+    for (const author of options.coAuthors) {
+      fullMessage += `Co-authored-by: ${author.name} <${author.email}>\n`
+    }
+  }
+  
+  // Create commit
+  const args = ['commit', '-F', '-']
+  if (options?.amend) {
+    args.push('--amend')
+  }
+  
+  const result = await git(args, repository.path, {
+    stdin: fullMessage,
+    onHookProgress: trackHookProgress,
+  })
+  
+  return result.exitCode === 0
+}
+```
+
+### Diff
+
+**File**: `app/src/lib/git/diff.ts`
+
+Generate diffs with syntax highlighting:
+
+```typescript
+export async function getWorkingDirectoryDiff(
+  repository: Repository,
+  file: WorkingDirectoryFileChange,
+  lineFilter?: ReadonlyArray<number>
+): Promise<ITextDiff | null> {
+  const args = [
+    'diff',
+    '--no-ext-diff',
+    '--patch-with-raw',
+    '-z',
+    '--no-color',
+  ]
+  
+  // Filter by lines (for partial staging)
+  if (lineFilter) {
+    args.push(`--inter-hunk-context=${Number.MAX_SAFE_INTEGER}`)
+  }
+  
+  args.push('--', file.path)
+  
+  const result = await git(args, repository.path)
+  
+  return parseDiff(result.stdout, lineFilter)
+}
+
+function parseDiff(
+  output: string,
+  lineFilter?: ReadonlyArray<number>
+): ITextDiff {
+  const hunks: DiffHunk[] = []
+  let currentHunk: DiffHunk | null = null
+  
+  for (const line of output.split('\n')) {
+    if (line.startsWith('@@')) {
+      currentHunk = parseHunkHeader(line)
+      hunks.push(currentHunk)
+    } else if (currentHunk) {
+      currentHunk.lines.push(parseDiffLine(line))
+    }
+  }
+  
+  return { hunks, maxLineNumber: calculateMaxLine(hunks) }
+}
+```
+
+### Branch Operations
+
+**File**: `app/src/lib/git/branch.ts`
+
+Branch management:
+
+```typescript
+export async function createBranch(
+  repository: Repository,
+  name: string,
+  startPoint?: string
+): Promise<void> {
+  const args = ['branch', name]
+  if (startPoint) {
+    args.push(startPoint)
+  }
+  
+  await git(args, repository.path)
+}
+
+export async function deleteBranch(
+  repository: Repository,
+  name: string,
+  force: boolean = false
+): Promise<void> {
+  const args = ['branch', force ? '-D' : '-d', name]
+  await git(args, repository.path)
+}
+
+export async function renameBranch(
+  repository: Repository,
+  oldName: string,
+  newName: string
+): Promise<void> {
+  await git(['branch', '-m', oldName, newName], repository.path)
+}
+
+export async function getBranches(
+  repository: Repository
+): Promise<ReadonlyArray<Branch>> {
+  const result = await git(
+    ['for-each-ref', '--format=%(refname)%00%(upstream)%00%(HEAD)', 'refs/heads'],
+    repository.path
+  )
+  
+  return parseBranches(result.stdout)
+}
+```
+
+### Checkout
+
+**File**: `app/src/lib/git/checkout.ts`
+
+Switch branches or commits:
+
+```typescript
+export async function checkoutBranch(
+  repository: Repository,
+  branch: Branch,
+  options?: {
+    readonly progressCallback?: (progress: ICheckoutProgress) => void
+  }
+): Promise<void> {
+  const args = ['checkout', branch.name]
+  
+  await git(args, repository.path, {
+    onTerminalOutputAvailable: output => {
+      // Parse checkout progress
+      const progress = parseCheckoutProgress(output)
+      options?.progressCallback?.(progress)
+    },
+  })
+}
+
+export async function checkoutPaths(
+  repository: Repository,
+  paths: ReadonlyArray<string>
+): Promise<void> {
+  // Discard changes for specific files
+  await git(['checkout', '--', ...paths], repository.path)
+}
+```
+
+## Advanced Operations
+
+### Rebase
+
+**File**: `app/src/lib/git/rebase.ts`
+
+Interactive and non-interactive rebasing:
+
+```typescript
+export async function rebase(
+  repository: Repository,
+  baseBranch: string,
+  targetBranch: string
+): Promise<RebaseResult> {
+  const result = await git(
+    ['rebase', baseBranch, targetBranch],
+    repository.path,
+    {
+      expectedErrors: new Set([GitError.RebaseConflicts]),
+    }
+  )
+  
+  if (result.gitError === GitError.RebaseConflicts) {
+    return RebaseResult.ConflictsEncountered
+  }
+  
+  return RebaseResult.CompletedWithoutError
+}
+
+export async function continueRebase(
+  repository: Repository
+): Promise<RebaseResult> {
+  await git(['rebase', '--continue'], repository.path)
+  return RebaseResult.CompletedWithoutError
+}
+
+export async function abortRebase(repository: Repository): Promise<void> {
+  await git(['rebase', '--abort'], repository.path)
+}
+```
+
+### Cherry Pick
+
+**File**: `app/src/lib/git/cherry-pick.ts`
+
+Cheriy-pick commits:
+
+```typescript
+export async function cherryPick(
+  repository: Repository,
+  commits: ReadonlyArray<string>
+): Promise<CherryPickResult> {
+  for (const sha of commits) {
+    const result = await git(
+      ['cherry-pick', sha],
+      repository.path,
+      {
+        expectedErrors: new Set([GitError.MergeConflicts]),
+      }
+    )
+    
+    if (result.gitError === GitError.MergeConflicts) {
+      return {
+        kind: CherryPickResultKind.ConflictsEncountered,
+        conflictedFiles: await getConflictedFiles(repository),
+      }
+    }
+  }
+  
+  return { kind: CherryPickResultKind.CompletedWithoutError }
+}
+```
+
+### Clone
+
+**File**: `app/src/lib/git/clone.ts`
+
+Clone with progress tracking:
+
+```typescript
+export async function clone(
+  url: string,
+  path: string,
+  options: {
+    readonly branch?: string
+    readonly progressCallback?: (progress: ICloneProgress) => void
+  }
+): Promise<void> {
+  const args = ['clone', '--progress', url, path]
+  
+  if (options.branch) {
+    args.push('--branch', options.branch)
+  }
+  
+  await git(args, process.cwd(), {
+    onTerminalOutputAvailable: output => {
+      // Parse clone progress
+      const progress = parseCloneProgress(output)
+      options.progressCallback?.(progress)
+    },
+  })
+}
+
+function parseCloneProgress(output: string): ICloneProgress {
+  // Parse: "Receiving objects: 45% (1234/2000)"
+  const match = output.match(/([\w\s]+):\s+(\d+)% \((\d+)\/(\d+)\)/)
+  if (match) {
+    return {
+      kind: 'clone',
+      title: match[1],
+      value: parseInt(match[3]),
+      total: parseInt(match[4]),
+    }
+  }
+  return { kind: 'clone', title: 'Cloning...', value: 0, total: 100 }
+}
+```
+
+## Git Configuration
+
+**File**: `app/src/lib/git/config.ts`
+
+Read and write Git config:
+
+```typescript
+export async function getConfigValue(
+  repository: Repository,
+  key: string,
+  scope: 'local' | 'global' = 'local'
+): Promise<string | null> {
+  const args = ['config', `--${scope}`, '--get', key]
+  const result = await git(args, repository.path, {
+    successExitCodes: new Set([0, 1]), // 1 = key not found
+  })
+  
+  return result.exitCode === 0 ? result.stdout.trim() : null
+}
+
+export async function setConfigValue(
+  repository: Repository,
+  key: string,
+  value: string,
+  scope: 'local' | 'global' = 'local'
+): Promise<void> {
+  await git(['config', `--${scope}`, key, value], repository.path)
+}
+
+// Commonly used configs
+export async function getUserName(repository: Repository): Promise<string | null> {
+  return getConfigValue(repository, 'user.name')
+}
+
+export async function getUserEmail(repository: Repository): Promise<string | null> {
+  return getConfigValue(repository, 'user.email')
+}
+```
+
+## Remote Operations
+
+### Fetch
+
+**File**: `app/src/lib/git/fetch.ts`
+
+Fetch from remotes with progress:
+
+```typescript
+export async function fetch(
+  repository: Repository,
+  remote: string,
+  progressCallback?: (progress: IFetchProgress) => void
+): Promise<void> {
+  const args = ['fetch', '--progress', '--prune', remote]
+  
+  await git(args, repository.path, {
+    onTerminalOutputAvailable: output => {
+      const progress = parseFetchProgress(output)
+      progressCallback?.(progress)
+    },
+  })
+}
+
+export async function fetchAll(
+  repository: Repository,
+  progressCallback?: (progress: IFetchProgress) => void
+): Promise<void> {
+  await fetch(repository, '--all', progressCallback)
+}
+```
+
+### Push
+
+**File**: `app/src/lib/git/push.ts`
+
+Push with authentication:
+
+```typescript
+export async function push(
+  repository: Repository,
+  remote: string,
+  localBranch: string,
+  remoteBranch?: string,
+  options?: PushOptions
+): Promise<void> {
+  const args = ['push', remote]
+  
+  if (options?.force) {
+    args.push('--force-with-lease')
+  }
+  
+  if (options?.setUpstream) {
+    args.push('--set-upstream')
+  }
+  
+  const refspec = remoteBranch
+    ? `${localBranch}:${remoteBranch}`
+    : localBranch
+  args.push(refspec)
+  
+  await git(args, repository.path, {
+    expectedErrors: new Set([
+      GitError.PushRejected,
+      GitError.HTTPSAuthenticationFailed,
+    ]),
+  })
+}
+```
+
+## Git Hooks
+
+**File**: `app/src/lib/git/core.ts` (hook handling)
+
+Intercept and handle Git hooks:
+
+```typescript
+export type HookProgress = {
+  readonly hookName: string
+} & (
+  | { readonly status: 'started'; readonly abort: () => void }
+  | { readonly status: 'finished' | 'failed' }
+)
+
+// Example: Intercept pre-commit hook
+await git(['commit', '-m', message], repository.path, {
+  interceptHooks: ['pre-commit'],
+  onHookProgress: (progress: HookProgress) => {
+    if (progress.status === 'started') {
+      // Show progress UI
+      showHookProgress(progress.hookName)
+      
+      // Allow user to cancel
+      if (userWantsToCancel) {
+        progress.abort()
+      }
+    }
+  },
+  onHookFailure: async (hookName, output) => {
+    // Hook failed, ask user what to do
+    const action = await showHookFailureDialog(hookName, output)
+    return action // 'abort' or 'ignore'
+  },
+})
+```
+
+## LFS Support
+
+**File**: `app/src/lib/git/lfs.ts`
+
+Git LFS operations:
+
+```typescript
+export async function isLFSEnabled(repository: Repository): Promise<boolean> {
+  const result = await git(['lfs', 'env'], repository.path, {
+    successExitCodes: new Set([0, 127]), // 127 = LFS not installed
+  })
+  return result.exitCode === 0
+}
+
+export async function installLFS(repository: Repository): Promise<void> {
+  await git(['lfs', 'install'], repository.path)
+}
+
+export async function trackLFS(
+  repository: Repository,
+  pattern: string
+): Promise<void> {
+  await git(['lfs', 'track', pattern], repository.path)
+}
+```
+
+## Environment Configuration
+
+**File**: `app/src/lib/git/environment.ts`
+
+Configure Git execution environment:
+
+```typescript
+export function getGitEnvironment(): Record<string, string> {
+  return {
+    // Disable Git GUI prompts
+    GIT_ASKPASS: '',
+    
+    // Configure credential helper
+    GIT_TERMINAL_PROMPT: '0',
+    
+    // Set editor (for interactive operations)
+    GIT_EDITOR: getDesktopEditor(),
+    
+    // SSH configuration
+    GIT_SSH_COMMAND: getSSHCommand(),
+  }
+}
+```
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+  <Card title="Background Tasks" icon="clock">
+    Non-blocking operations for large repositories
+  </Card>
+  <Card title="Partial Diffs" icon="file-lines">
+    Load only visible portions of large diffs
+  </Card>
+  <Card title="Caching" icon="database">
+    Cache expensive operations (log, blame)
+  </Card>
+  <Card title="Streaming" icon="water">
+    Stream large outputs instead of buffering
+  </Card>
+</CardGroup>
+
+### Background Operations Example
+
+```typescript
+export async function fetchInBackground(
+  repository: Repository
+): Promise<void> {
+  await git(['fetch', '--all'], repository.path, {
+    isBackgroundTask: true, // Suppress credential prompts
+  })
+}
+```
+
+## Error Recovery
+
+Automatic recovery from common errors:
+
+```typescript
+export async function pushWithRecovery(
+  repository: Repository,
+  remote: string,
+  branch: string
+): Promise<void> {
+  try {
+    await push(repository, remote, branch)
+  } catch (error) {
+    if (error.gitError === GitError.PushRejected) {
+      // Pull and try again
+      await pull(repository)
+      await push(repository, remote, branch)
+    } else {
+      throw error
+    }
+  }
+}
+```
+
+## Testing Git Operations
+
+### Mock Git Execution
+
+```typescript
+import { git } from '../git/core'
+
+jest.mock('../git/core', () => ({
+  git: jest.fn(),
+}))
+
+test('getStatus parses output correctly', async () => {
+  (git as jest.Mock).mockResolvedValue({
+    stdout: '1 .M N... 100644 100644 abc123 def456 README.md',
+    exitCode: 0,
+  })
+  
+  const status = await getStatus(repository)
+  expect(status.files).toHaveLength(1)
+  expect(status.files[0].path).toBe('README.md')
+})
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="State Management" href="/architecture/state-management">
+    See how Git data flows into stores
+  </Card>
+  <Card title="UI Components" href="/architecture/ui-components">
+    Learn how UI displays Git data
+  </Card>
+</CardGroup>

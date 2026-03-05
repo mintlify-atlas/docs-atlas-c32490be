@@ -1,0 +1,180 @@
+---
+title: TypeScript Style Guide
+description: Coding standards and best practices for contributing to GitHub Desktop
+---
+
+## Configuration
+
+Most of our preferred style when writing TypeScript is configured in our [`.eslintrc.yml`](https://github.com/desktop/desktop/blob/development/.eslintrc.yml) files.
+
+<Note>
+  We recommend enabling [ESLint](https://eslint.org/docs/user-guide/integrations) in your editor to catch style issues while you code.
+</Note>
+
+## Naming Conventions
+
+<CardGroup cols={2}>
+  <Card title="Methods" icon="function">
+    Use **camelCase** for method names
+    
+    ```ts
+    getUserName()
+    fetchRepository()
+    ```
+  </Card>
+  
+  <Card title="Classes" icon="box">
+    Use **PascalCase** for class names
+    
+    ```ts
+    class AppStore {}
+    class GitHubRepository {}
+    ```
+  </Card>
+</CardGroup>
+
+## Documenting Your Code
+
+We currently use [JSDoc](http://usejsdoc.org/) even though we don't currently generate any documentation or verify the format. We're using JSDoc over other formats because the TypeScript compiler has built-in support for parsing JSDoc and presenting it in IDEs.
+
+<Note>
+  While there doesn't appear to be any well-used TypeScript documentation export utilities out there at the moment, we hope that it's only a matter of time. JSDoc uses a lot of metadata that is already self-documented in the TypeScript type system such as visibility, inheritance, and membership.
+</Note>
+
+### Basic Documentation
+
+You can document classes, methods, properties, and fields using a formatted comment on the line above whatever you're documenting:
+
+```ts
+/** This is a documentation string */
+```
+
+<Warning>
+  The double star `/**` opener is the key. It has to be exactly two stars for it to be a valid JSDoc open token.
+</Warning>
+
+### Multi-line Documentation
+
+If you need multiple lines to describe the subject, sum up the thing you're describing in a short title and leave a blank line before you go into detail (similar to a git commit message):
+
+```ts
+/**
+ * This is a title, keep it short and sweet
+ *
+ * Go nuts with documentation here and in more paragraphs if you need to.
+ */
+```
+
+## AppStore Method Visibility
+
+The [`Dispatcher`](https://github.com/desktop/desktop/blob/development/app/src/lib/dispatcher/dispatcher.ts) is the entry point for most interactions with the application which update state, and for most usages this work is then delegated to the [`AppStore`](https://github.com/desktop/desktop/blob/development/app/src/lib/stores/app-store.ts).
+
+Due to this coupling, we need to discourage callers from directly manipulating specific methods in the `AppStore` unless there's a compelling reason.
+
+### Making Methods Unappealing
+
+We make methods look unappealing to discourage direct usage:
+
+- Underscore prefix on method name
+- Comment indicating that you should be looking elsewhere
+
+```ts
+/** This shouldn't be called directly. See `Dispatcher`. */
+public async _repositoryWithRefreshedGitHubRepository(
+  repository: Repository
+): Promise<Repository> {
+  // ...
+}
+```
+
+## Asynchronous and Synchronous Node APIs
+
+### Application Code
+
+We should be using asynchronous core APIs throughout the application, unless there's a compelling reason and no asynchronous alternative.
+
+<Warning>
+  In cases where synchronous methods must be used, the method should be suffixed with `Sync` to make it clear to the caller what's happening.
+  
+  ```ts
+  readFileSync()  // Clear indication of synchronous operation
+  readFile()      // Async by default
+  ```
+</Warning>
+
+We also fall back to `Sync` methods for readability in tests.
+
+<Note>
+  We use [an ESLint rule](https://eslint.org/docs/rules/no-sync) to enforce this standard.
+</Note>
+
+### Scripts
+
+For scripts, we favor synchronous APIs as the asynchronous benefits are not as important, and it makes the code easier to read.
+
+```ts
+// In scripts, this is preferred:
+const content = fs.readFileSync('file.txt', 'utf8')
+console.log(content)
+
+// Over the async version:
+fs.readFile('file.txt', 'utf8', (err, content) => {
+  console.log(content)
+})
+```
+
+## Code Examples
+
+### Immutability Pattern
+
+Prefer `const` with conditional assignment:
+
+<CodeGroup>
+  ```ts Good
+  const a = someCondition ? someValue : someOtherValue
+  ```
+  
+  ```ts Avoid
+  let a = someDefaultValue
+  if (someCondition) {
+    a = someOtherValue
+  }
+  ```
+</CodeGroup>
+
+### Read-only Parameters
+
+Use read-only arrays and objects in function parameters:
+
+```ts
+function parseEmails(emails: ReadonlyArray<string>): ParsedEmail[] {
+  // Implementation
+}
+```
+
+### Type Safety with assertNever
+
+Use the `assertNever` helper to ensure exhaustive type checking:
+
+```ts
+function handleStatus(status: CIStatus) {
+  switch (status) {
+    case 'success':
+      return renderSuccess()
+    case 'failure':
+      return renderFailure()
+    case 'pending':
+      return renderPending()
+    default:
+      return assertNever(status, 'Unknown status')
+  }
+}
+```
+
+If you add a new status type and forget to handle it, TypeScript will raise a compile-time error.
+
+## Additional Resources
+
+- [ESLint Configuration](https://github.com/desktop/desktop/blob/development/.eslintrc.yml)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [JSDoc Reference](http://usejsdoc.org/)

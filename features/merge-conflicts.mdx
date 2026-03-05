@@ -1,0 +1,482 @@
+---
+title: "Merge Conflicts"
+description: "Learn how to identify, resolve, and prevent merge conflicts in GitHub Desktop"
+---
+
+## Overview
+
+Merge conflicts occur when Git cannot automatically merge changes from different branches. GitHub Desktop provides an intuitive interface to help you resolve conflicts and complete merges successfully.
+
+<CardGroup cols={2}>
+  <Card title="Conflict Detection" icon="triangle-exclamation">
+    Automatically detect conflicts when merging or rebasing
+  </Card>
+  <Card title="Visual Resolution" icon="code-compare">
+    See conflicted sections side-by-side with clear markers
+  </Card>
+  <Card title="Manual Resolution" icon="hand">
+    Choose "ours", "theirs", or edit manually
+  </Card>
+  <Card title="File-Level Actions" icon="file">
+    Resolve entire files with one click when appropriate
+  </Card>
+</CardGroup>
+
+## Understanding Merge Conflicts
+
+### What Causes Conflicts?
+
+Conflicts happen when:
+- Two branches modify the same lines in a file
+- One branch modifies a file while another deletes it
+- Two branches create files with the same name
+- Binary files are modified in different ways
+
+### Types of Conflicts
+
+<Accordion title="Content Conflicts">
+  Both branches modified the same lines:
+  ```diff
+  <<<<<<< HEAD
+  const greeting = "Hello, World!";
+  =======
+  const greeting = "Hi there!";
+  >>>>>>> feature-branch
+  ```
+  
+  You must choose which version to keep or combine them.
+</Accordion>
+
+<Accordion title="Modify/Delete Conflicts">
+  One branch modified a file while another deleted it:
+  - **Keep the file**: Use the modified version
+  - **Delete the file**: Accept the deletion
+</Accordion>
+
+<Accordion title="Rename Conflicts">
+  Both branches renamed the same file differently:
+  - Choose which name to use
+  - Or rename to a new name entirely
+</Accordion>
+
+<Accordion title="Binary Conflicts">
+  Images or other binary files modified on both branches:
+  - Choose one version (cannot merge binary files)
+  - Or replace with a new file
+</Accordion>
+
+## Detecting Conflicts
+
+### During Merge
+
+When merging branches:
+
+<Steps>
+  <Step title="Initiate Merge">
+    Click **Branch** > **Merge into current branch**
+  </Step>
+  <Step title="Select Branch">
+    Choose the branch to merge
+  </Step>
+  <Step title="Conflict Warning">
+    If conflicts exist, GitHub Desktop:
+    - Shows number of conflicted files
+    - Lists affected files
+    - Stops the merge for resolution
+  </Step>
+</Steps>
+
+### During Rebase
+
+When rebasing:
+
+<Steps>
+  <Step title="Start Rebase">
+    Click **Branch** > **Rebase current branch**
+  </Step>
+  <Step title="Conflict Detection">
+    If conflicts occur:
+    - Rebase pauses at the conflicted commit
+    - Shows which commit caused the conflict
+    - Displays conflicted files
+  </Step>
+</Steps>
+
+### During Cherry-Pick
+
+When cherry-picking commits:
+
+- GitHub Desktop highlights conflicts immediately
+- Shows the commit being applied
+- Lists files with conflicts
+
+## Resolving Conflicts in GitHub Desktop
+
+### Conflict Resolution Interface
+
+When conflicts occur, the Changes tab shows:
+
+**Conflicted Files Section**
+- Red warning icon
+- List of files with conflicts
+- "Resolve in [editor]" button
+- Manual resolution options
+
+**Conflict Markers**
+```text
+<<<<<<< HEAD (Current Change)
+Your current branch's version
+=======
+The incoming branch's version
+>>>>>>> branch-name (Incoming Change)
+```
+
+### Step-by-Step Resolution
+
+<Steps>
+  <Step title="Identify Conflicted Files">
+    In the Changes tab, locate files marked with a conflict icon
+  </Step>
+  <Step title="Open Conflict">
+    Click a conflicted file to see the conflict markers
+  </Step>
+  <Step title="Choose Resolution Method">
+    Select how to resolve:
+    - **Use Ours**: Keep your current branch's changes
+    - **Use Theirs**: Accept the incoming branch's changes  
+    - **Open in Editor**: Manually edit to combine or modify
+  </Step>
+  <Step title="Resolve Each Conflict">
+    Repeat for all conflicted files
+  </Step>
+  <Step title="Mark as Resolved">
+    Files are automatically staged after resolution
+  </Step>
+  <Step title="Complete Merge">
+    Click **Commit merge** to finish the merge
+  </Step>
+</Steps>
+
+### Manual Resolution in Editor
+
+For complex conflicts, edit files directly:
+
+<Steps>
+  <Step title="Open in Editor">
+    Click **Open in [your editor]** for a conflicted file
+  </Step>
+  <Step title="Find Conflict Markers">
+    Look for `<<<<<<<`, `=======`, and `>>>>>>>` markers
+  </Step>
+  <Step title="Edit the File">
+    - Remove conflict markers
+    - Keep, combine, or rewrite the conflicted sections
+    - Save the file
+  </Step>
+  <Step title="Return to GitHub Desktop">
+    The file is automatically marked as resolved
+  </Step>
+</Steps>
+
+<Info>
+Most code editors (VS Code, Sublime Text, etc.) provide syntax highlighting and quick actions for merge conflicts.
+</Info>
+
+## Conflict Resolution Implementation
+
+### Manual Conflict Resolution
+
+GitHub Desktop supports choosing "ours" or "theirs" for entire files:
+
+```typescript
+// From app/src/models/manual-conflict-resolution.ts
+export enum ManualConflictResolution {
+  ours = 'ours',   // Keep current branch's version
+  theirs = 'theirs' // Use incoming branch's version  
+}
+
+// Applied during merge commit creation
+export async function createMergeCommit(
+  repository: Repository,
+  files: ReadonlyArray<WorkingDirectoryFileChange>,
+  manualResolutions: ReadonlyMap<string, ManualConflictResolution>
+): Promise<string> {
+  // Apply manual conflict resolutions
+  for (const [path, resolution] of manualResolutions) {
+    const file = files.find(f => f.path === path)
+    if (file !== undefined) {
+      await stageManualConflictResolution(repository, file, resolution)
+    }
+  }
+  
+  await stageFiles(repository, otherFiles)
+  await git(['commit', '--no-edit', '--cleanup=strip'])
+}
+```
+
+### Modify/Delete Conflict Resolution
+
+When one branch modifies and another deletes:
+
+```typescript
+// Conflict is indicated by GitError.ConflictModifyDeletedInBranch
+if (result.gitError === GitError.ConflictModifyDeletedInBranch) {
+  // User chooses:
+  // 1. Keep modified version (stage the file)
+  // 2. Accept deletion (remove the file)
+}
+```
+
+## Completing Merge After Conflicts
+
+### Merge Commit Message
+
+GitHub Desktop automatically generates merge commit messages:
+
+```text
+Merge branch 'feature-branch' into main
+
+# Conflicts:
+#   src/file1.ts
+#   src/file2.ts
+```
+
+The message includes:
+- Source and target branches
+- List of conflicted files (as comments)
+- Can be edited before committing
+
+### Cleanup Process
+
+```typescript
+// From app/src/lib/git/commit.ts
+const result = await git(
+  [
+    'commit',
+    '--no-edit',        // Use existing merge message
+    '--cleanup=strip',  // Remove comment lines starting with #
+  ],
+  repository.path,
+  'createMergeCommit'
+)
+```
+
+<Info>
+GitHub Desktop uses `--cleanup=strip` to remove Git's default comment lines from the merge commit message.
+</Info>
+
+## Aborting Merge/Rebase
+
+If you want to cancel the operation:
+
+### Abort Merge
+
+<Steps>
+  <Step title="Click Abort">
+    Click **Abort merge** in the Changes tab
+  </Step>
+  <Step title="Confirm">
+    Confirm you want to cancel the merge
+  </Step>
+  <Step title="Return to Previous State">
+    Repository returns to state before merge started
+  </Step>
+</Steps>
+
+### Abort Rebase
+
+<Steps>
+  <Step title="Click Abort">
+    Click **Abort rebase** in the banner
+  </Step>
+  <Step title="Confirm">
+    If you've resolved conflicts, confirm you want to discard them
+  </Step>
+  <Step title="Restore Original State">
+    Branch returns to state before rebase
+  </Step>
+</Steps>
+
+<Warning>
+Aborting discards all conflict resolutions. There's no way to recover the work you've done resolving conflicts.
+</Warning>
+
+## Preventing Merge Conflicts
+
+### Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Communicate" icon="comments">
+    Coordinate with team members about who's working on which files
+  </Card>
+  <Card title="Pull Frequently" icon="download">
+    Regularly update your branch from the base branch
+  </Card>
+  <Card title="Small Changes" icon="compress">
+    Make smaller, more focused commits that are easier to merge
+  </Card>
+  <Card title="Merge Often" icon="code-merge">
+    Integrate changes frequently instead of letting branches diverge
+  </Card>
+</CardGroup>
+
+### Proactive Strategies
+
+1. **Update from Main Regularly**
+   ```
+   Branch > Update from main
+   ```
+   Keep your feature branch synchronized with the base branch
+
+2. **Create Focused Branches**
+   - Work on one feature or fix per branch
+   - Avoid modifying too many files
+   - Keep branches short-lived
+
+3. **Use Pull Requests**
+   - Review changes before merging
+   - Get early feedback on potential conflicts
+   - Use draft PRs for work in progress
+
+4. **Coordinate File Ownership**
+   - Establish file ownership conventions
+   - Communicate before modifying shared files
+   - Use code review to catch potential conflicts early
+
+## Advanced Conflict Scenarios
+
+### Multiple Sequential Conflicts (Rebase)
+
+During a rebase, you may encounter conflicts in multiple commits:
+
+<Steps>
+  <Step title="Resolve First Conflict">
+    Resolve conflicts in the current commit
+  </Step>
+  <Step title="Continue Rebase">
+    Click **Continue rebase**
+  </Step>
+  <Step title="Handle Next Conflict">
+    If another commit conflicts, repeat the process
+  </Step>
+  <Step title="Complete Rebase">
+    Continue until all commits are applied
+  </Step>
+</Steps>
+
+### Submodule Conflicts
+
+When submodules conflict:
+
+1. GitHub Desktop shows the submodule as conflicted
+2. You must resolve by choosing which submodule commit to use
+3. Or update the submodule to a new commit that works for both branches
+
+### .gitattributes and Line Endings
+
+Line ending conflicts can be prevented:
+
+```text .gitattributes
+* text=auto
+*.ts text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+```
+
+Configuring `.gitattributes` ensures consistent line endings across platforms.
+
+## Conflict Resolution Tools
+
+### External Merge Tools
+
+Configure external tools for complex conflicts:
+
+**Popular Merge Tools:**
+- Visual Studio Code
+- Beyond Compare
+- KDiff3
+- P4Merge  
+- Meld
+
+**Configure in Git:**
+```bash
+git config --global merge.tool vscode
+git config --global mergetool.vscode.cmd 'code --wait $MERGED'
+```
+
+Then open from GitHub Desktop:
+1. Right-click conflicted file
+2. Select **Open in external merge tool**
+
+## Viewing Conflict History
+
+After resolving conflicts:
+
+1. Switch to **History** tab
+2. Find the merge commit
+3. Review what conflicts existed
+4. See how they were resolved
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot Complete Merge">
+    If the merge won't complete:
+    - **Unresolved files**: Check all conflicted files are resolved
+    - **Unstaged changes**: Ensure resolved files are staged
+    - **Git state**: Repository might be in an inconsistent state
+    - Try: Abort and restart the merge
+  </Accordion>
+  
+  <Accordion title="Conflict Markers Still Present">
+    If you see `<<<<<<<` in your code after "resolving":
+    - You didn't remove all conflict markers
+    - Search for `<<<<<<<`, `=======`, `>>>>>>>` in the file
+    - Remove markers and save
+    - Stage the file again
+  </Accordion>
+  
+  <Accordion title="Lost Conflict Resolution Work">
+    If you accidentally aborted:
+    - Resolution work is lost (not recoverable)
+    - Must restart and resolve again
+    - Consider using `git reflog` in terminal if you committed mid-resolution
+  </Accordion>
+  
+  <Accordion title="Binary File Conflicts">
+    For images, PDFs, or other binary files:
+    - Cannot merge binary files automatically
+    - Choose one version or the other
+    - Or replace with a newly created file
+    - Consider using Git LFS for large binary files
+  </Accordion>
+  
+  <Accordion title="Too Many Conflicts">
+    If facing overwhelming conflicts:
+    - Abort the merge/rebase
+    - Break changes into smaller chunks
+    - Update from base branch more frequently
+    - Consider alternative merge strategies
+  </Accordion>
+</AccordionGroup>
+
+## Tips for Resolving Complex Conflicts
+
+<Tip>
+**Take your time**: Complex conflicts require careful thought. Don't rush—understand what both sides are trying to accomplish.
+</Tip>
+
+1. **Understand Both Changes**: Read the code from both branches carefully
+2. **Test After Resolution**: Always test that the merged code works
+3. **Consult Original Authors**: Ask teammates if you're unsure about their changes
+4. **Use Git History**: Check `git log` to understand why changes were made
+5. **Resolve Incrementally**: For multiple conflicts, resolve one at a time
+6. **Document Decisions**: Add comments explaining non-obvious resolutions
+
+## Related Topics
+
+- [Branches](/features/branches)
+- [Rebasing](/workflows/rebasing)
+- [Pull Requests](/features/pull-requests)
+- [History and Diffs](/features/history-and-diffs)

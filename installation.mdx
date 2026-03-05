@@ -1,0 +1,284 @@
+---
+title: "Installation"
+description: "Install GitHub Desktop on macOS, Windows, or Linux"
+---
+
+## System Requirements
+
+Before installing GitHub Desktop, ensure your system meets these requirements:
+
+<Tabs>
+  <Tab title="macOS">
+    - macOS 10.13 High Sierra or later
+    - 64-bit processor
+    - At least 500 MB of available disk space
+  </Tab>
+  <Tab title="Windows">
+    - Windows 10 (64-bit) or later
+    - Windows 11 supported
+    - At least 500 MB of available disk space
+    - .NET Framework 4.5 or later (usually pre-installed)
+  </Tab>
+  <Tab title="Linux">
+    - 64-bit Linux distribution
+    - Supported distributions: Ubuntu, Debian, Fedora, CentOS, openSUSE, and more
+    - At least 500 MB of available disk space
+  </Tab>
+</Tabs>
+
+## Installing GitHub Desktop
+
+<Tabs>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Download the installer">
+        Download GitHub Desktop for macOS:
+        
+        - [macOS (Intel)](https://central.github.com/deployments/desktop/desktop/latest/darwin)
+        - [macOS (Apple Silicon)](https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64)
+        
+        <Note>
+        The installer will automatically detect your Mac's architecture.
+        </Note>
+      </Step>
+      
+      <Step title="Install the application">
+        1. Open the downloaded `.zip` file
+        2. Drag **GitHub Desktop.app** to your Applications folder
+        3. Launch GitHub Desktop from Applications or Spotlight
+        
+        <Info>
+        On first launch, macOS may ask for permission to open the app. Click **Open** to continue.
+        </Info>
+      </Step>
+      
+      <Step title="Verify installation">
+        Once launched, GitHub Desktop will:
+        1. Prompt you to sign in to GitHub
+        2. Configure Git with your account information
+        3. Show the welcome screen
+        
+        You can verify the installation by checking **GitHub Desktop → About GitHub Desktop** to see the version number.
+      </Step>
+    </Steps>
+    
+    ### Alternative: Homebrew
+    
+    You can also install GitHub Desktop using Homebrew:
+    
+    ```bash
+    brew install --cask github
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Download the installer">
+        Download GitHub Desktop for Windows:
+        
+        - [Windows (User Install)](https://central.github.com/deployments/desktop/desktop/latest/win32)
+        - [Windows (Machine-wide MSI)](https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi)
+        
+        <Note>
+        The user install is recommended for most users. Use the MSI installer for enterprise deployments.
+        </Note>
+      </Step>
+      
+      <Step title="Run the installer">
+        1. Run the downloaded `GitHubDesktopSetup.exe` or `.msi` file
+        2. Follow the installation wizard
+        3. GitHub Desktop will launch automatically after installation
+        
+        <Info>
+        The installer may require administrator privileges for machine-wide installations.
+        </Info>
+      </Step>
+      
+      <Step title="Verify installation">
+        Once launched, GitHub Desktop will:
+        1. Prompt you to sign in to GitHub
+        2. Configure Git with your account information
+        3. Show the welcome screen
+        
+        You can verify the installation by checking **Help → About GitHub Desktop** to see the version number.
+      </Step>
+    </Steps>
+    
+    ### Alternative: Package Managers
+    
+    <CodeGroup>
+    ```bash winget
+    winget install github-desktop
+    ```
+    
+    ```bash Chocolatey
+    choco install github-desktop
+    ```
+    </CodeGroup>
+  </Tab>
+  
+  <Tab title="Linux">
+    <Note>
+    Linux is not officially supported by GitHub, but community packages are available through the [`shiftkey/desktop`](https://github.com/shiftkey/desktop) fork.
+    </Note>
+    
+    <Steps>
+      <Step title="Choose your distribution">
+        Visit the [shiftkey/desktop releases page](https://github.com/shiftkey/desktop/releases) to find packages for your distribution:
+        
+        - `.deb` packages for Debian/Ubuntu
+        - `.rpm` packages for Fedora/CentOS/RHEL
+        - `.AppImage` for universal Linux support
+      </Step>
+      
+      <Step title="Install the package">
+        <Tabs>
+          <Tab title="Debian/Ubuntu">
+            ```bash
+            # Download the .deb package
+            wget https://github.com/shiftkey/desktop/releases/download/release-X.X.X-linuxX/GitHubDesktop-linux-amd64-X.X.X-linuxX.deb
+            
+            # Install with apt
+            sudo apt install ./GitHubDesktop-linux-amd64-X.X.X-linuxX.deb
+            ```
+          </Tab>
+          
+          <Tab title="Fedora/CentOS/RHEL">
+            ```bash
+            # Download the .rpm package
+            wget https://github.com/shiftkey/desktop/releases/download/release-X.X.X-linuxX/GitHubDesktop-linux-X.X.X-linuxX.rpm
+            
+            # Install with dnf or yum
+            sudo dnf install ./GitHubDesktop-linux-X.X.X-linuxX.rpm
+            ```
+          </Tab>
+          
+          <Tab title="AppImage">
+            ```bash
+            # Download the AppImage
+            wget https://github.com/shiftkey/desktop/releases/download/release-X.X.X-linuxX/GitHubDesktop-linux-amd64-X.X.X-linuxX.AppImage
+            
+            # Make it executable
+            chmod +x GitHubDesktop-linux-amd64-X.X.X-linuxX.AppImage
+            
+            # Run it
+            ./GitHubDesktop-linux-amd64-X.X.X-linuxX.AppImage
+            ```
+          </Tab>
+        </Tabs>
+      </Step>
+      
+      <Step title="Launch and verify">
+        Launch GitHub Desktop from your application menu or by running `github-desktop` from the terminal.
+        
+        The application will prompt you to sign in and configure your Git settings.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Beta Channel
+
+Want to test new features before they're released to everyone? Install the beta channel:
+
+<Tabs>
+  <Tab title="macOS">
+    - [macOS Beta (Intel)](https://central.github.com/deployments/desktop/desktop/latest/darwin?env=beta)
+    - [macOS Beta (Apple Silicon)](https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64?env=beta)
+  </Tab>
+  
+  <Tab title="Windows">
+    - [Windows Beta](https://central.github.com/deployments/desktop/desktop/latest/win32?env=beta)
+    - [Windows Beta (ARM64)](https://central.github.com/deployments/desktop/desktop/latest/win32-arm64?env=beta)
+  </Tab>
+</Tabs>
+
+<Warning>
+Beta builds may contain bugs and unstable features. Use at your own risk.
+</Warning>
+
+Release notes for beta versions are available at [desktop.github.com/release-notes/?env=beta](https://desktop.github.com/release-notes/?env=beta).
+
+## First Launch
+
+After installing GitHub Desktop, you'll be guided through initial setup:
+
+<Steps>
+  <Step title="Sign in to GitHub">
+    Click **Sign in to GitHub.com** and authorize GitHub Desktop in your browser.
+    
+    For GitHub Enterprise, click **Sign in to GitHub Enterprise Server** and enter your server URL.
+  </Step>
+  
+  <Step title="Configure Git">
+    GitHub Desktop will automatically configure Git with:
+    - Your GitHub username
+    - Your GitHub email address
+    
+    You can change these later in **Preferences → Git**.
+  </Step>
+  
+  <Step title="Choose repositories">
+    You can:
+    - Clone a repository from GitHub
+    - Add an existing local repository
+    - Create a new repository
+  </Step>
+</Steps>
+
+## Verifying Your Installation
+
+To verify GitHub Desktop is installed correctly:
+
+1. Open GitHub Desktop
+2. Go to **About GitHub Desktop** (macOS) or **Help → About GitHub Desktop** (Windows/Linux)
+3. Check the version number
+4. Run a test by cloning a repository
+
+<Info>
+GitHub Desktop requires Git to be installed. The app includes a bundled version of Git via [dugite](https://github.com/desktop/dugite), so you don't need to install Git separately.
+</Info>
+
+## Troubleshooting Installation
+
+If you encounter issues during installation:
+
+<Accordion title="macOS: 'GitHub Desktop is damaged and can't be opened'">
+  This is a macOS Gatekeeper issue. To fix:
+  
+  1. Open Terminal
+  2. Run: `xattr -cr /Applications/GitHub\ Desktop.app`
+  3. Try launching again
+</Accordion>
+
+<Accordion title="Windows: Installation hangs or fails">
+  1. Ensure you have administrator privileges
+  2. Temporarily disable antivirus software
+  3. Try the MSI installer instead of the user installer
+  4. Check Windows Event Viewer for error details
+</Accordion>
+
+<Accordion title="Linux: Missing dependencies">
+  Ensure you have required dependencies:
+  
+  ```bash Ubuntu/Debian
+  sudo apt install libsecret-1-0 gnome-keyring
+  ```
+  
+  ```bash Fedora/RHEL
+  sudo dnf install libsecret gnome-keyring
+  ```
+</Accordion>
+
+For more troubleshooting help, see our [Troubleshooting Guide](/support/troubleshooting).
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get started with your first repository
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/preferences">
+    Customize GitHub Desktop to your preferences
+  </Card>
+</CardGroup>

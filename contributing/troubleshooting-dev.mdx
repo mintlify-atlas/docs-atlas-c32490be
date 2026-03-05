@@ -1,0 +1,480 @@
+---
+title: Troubleshooting Development Issues
+description: Common development problems and their solutions
+---
+
+## Build Issues
+
+### Clean Build
+
+If you encounter unexpected build errors, try a clean build:
+
+<Steps>
+  <Step title="Remove Build Artifacts">
+    <CodeGroup>
+    ```bash yarn
+    yarn clean-slate
+    ```
+    
+    ```bash npm
+    npm run clean-slate
+    ```
+    </CodeGroup>
+    
+    This removes:
+    - `node_modules/` directory
+    - `app/node_modules/` directory
+    - `out/` build output directory
+  </Step>
+
+  <Step title="Reinstall Dependencies">
+    Dependencies are automatically reinstalled after running `clean-slate`.
+  </Step>
+
+  <Step title="Rebuild the Application">
+    <CodeGroup>
+    ```bash yarn
+    yarn build:dev
+    ```
+    
+    ```bash npm
+    npm run build:dev
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### Hard Rebuild
+
+Use the combined rebuild commands:
+
+<CodeGroup>
+```bash yarn
+# Development
+yarn rebuild-hard:dev
+
+# Production
+yarn rebuild-hard:prod
+```
+
+```bash npm
+# Development
+npm run rebuild-hard:dev
+
+# Production  
+npm run rebuild-hard:prod
+```
+</CodeGroup>
+
+<Warning>
+Hard rebuilds remove all dependencies and build artifacts. This may take several minutes.
+</Warning>
+
+## Node.js and npm Issues
+
+### Version Compatibility
+
+Ensure you're using compatible versions:
+
+```bash
+node -v   # Should be >= 10
+yarn -v   # Should be >= 1.9
+```
+
+If versions are incompatible:
+
+<CodeGroup>
+```bash macOS/Linux
+# Use nvm to install the correct Node version
+nvm install 20
+nvm use 20
+```
+
+```bash Windows
+# Download from nodejs.org
+# https://nodejs.org/
+```
+</CodeGroup>
+
+### Yarn Installation
+
+If Yarn is not installed:
+
+```bash
+npm install -g yarn
+```
+
+## Windows-Specific Issues
+
+### node-keytar Build Failures
+
+If `keytar` fails to build during `npm install`:
+
+```
+npm ERR! keytar@3.0.2 install: `node-gyp rebuild`
+npm ERR! Exit status 1
+```
+
+**Solution**: Update npm to the latest version:
+
+```powershell
+npm install -g npm@latest
+```
+
+Then retry installation:
+
+```bash
+npm install
+```
+
+### Build Tools Missing
+
+Windows builds require Visual Studio Build Tools:
+
+<Steps>
+  <Step title="Install Build Tools">
+    Download [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+  </Step>
+
+  <Step title="Select Components">
+    During installation, select:
+    - Desktop development with C++
+    - Windows 10 SDK
+  </Step>
+
+  <Step title="Retry Build">
+    ```bash
+    yarn build:dev
+    ```
+  </Step>
+</Steps>
+
+### Python Not Found
+
+Node-gyp requires Python 3.9+:
+
+1. Install Python from [python.org](https://www.python.org/downloads/)
+2. Add Python to PATH during installation
+3. Verify installation:
+   ```bash
+   python --version
+   ```
+
+## macOS-Specific Issues
+
+### Xcode Command Line Tools
+
+If compilation fails on macOS:
+
+```bash
+xcode-select --install
+```
+
+Accept the license agreement:
+
+```bash
+sudo xcodebuild -license accept
+```
+
+### macOS Version Validation
+
+Validate your macOS version is supported:
+
+<CodeGroup>
+```bash yarn
+yarn validate-macos-version
+```
+
+```bash npm
+npm run validate-macos-version
+```
+</CodeGroup>
+
+## Electron Issues
+
+### Electron Version Mismatch
+
+Validate the Electron version:
+
+<CodeGroup>
+```bash yarn
+yarn validate-electron-version
+```
+
+```bash npm
+npm run validate-electron-version
+```
+</CodeGroup>
+
+### Electron Download Failures
+
+If Electron fails to download during installation:
+
+1. **Check network connection** and firewall settings
+2. **Use a proxy** if behind corporate firewall:
+   ```bash
+   export ELECTRON_MIRROR="https://npm.taobao.org/mirrors/electron/"
+   yarn install
+   ```
+3. **Download manually** and set the cache:
+   ```bash
+   export ELECTRON_CACHE="/path/to/electron/cache"
+   yarn install
+   ```
+
+## Runtime Issues
+
+### Application Won't Start
+
+If the app crashes on startup:
+
+<Steps>
+  <Step title="Check Console Output">
+    Look for errors in the terminal where you ran `yarn start`
+  </Step>
+
+  <Step title="Clear Application Data">
+    <CodeGroup>
+    ```bash macOS
+    rm -rf ~/Library/Application\ Support/GitHub\ Desktop/
+    ```
+    
+    ```bash Windows
+    rmdir /s %APPDATA%\GitHub\ Desktop
+    ```
+    
+    ```bash Linux
+    rm -rf ~/.config/GitHub\ Desktop/
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Check Logs">
+    View application logs for detailed error messages:
+    
+    <CodeGroup>
+    ```bash macOS
+    ls ~/Library/Application\ Support/GitHub\ Desktop/logs/*.log
+    ```
+    
+    ```bash Windows
+    dir %LOCALAPPDATA%\Desktop\*.log
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### Hot Reload Not Working
+
+If changes aren't reflected after reloading (`Ctrl/Cmd+Alt+R`):
+
+1. **Check webpack compilation** in the terminal
+2. **Look for compilation errors** in DevTools console
+3. **Restart the development server**:
+   ```bash
+   # Stop the current server (Ctrl+C)
+   yarn start
+   ```
+4. **For main process changes**, rebuild:
+   ```bash
+   yarn build:dev
+   yarn start
+   ```
+
+### Memory Issues
+
+If you encounter out-of-memory errors during build:
+
+```bash
+export NODE_OPTIONS="--max_old_space_size=8192"
+yarn build:prod
+```
+
+<Note>
+The production build script already sets memory to 4GB. Increase further if needed.
+</Note>
+
+## Test Issues
+
+### Tests Failing Locally
+
+If tests pass in CI but fail locally:
+
+1. **Clear test cache**:
+   ```bash
+   rm -rf .cache
+   yarn test
+   ```
+
+2. **Run test setup**:
+   ```bash
+   yarn test:setup
+   ```
+
+3. **Check Node version** matches CI environment
+
+### Specific Test Failures
+
+Run a specific test to isolate issues:
+
+```bash
+yarn test:unit app/test/unit/specific-test.ts
+```
+
+Add `--test-name-pattern` to run a single test case:
+
+```bash
+yarn test:unit --test-name-pattern "test name"
+```
+
+## Linting Issues
+
+### ESLint Cache Problems
+
+Clear the ESLint cache:
+
+```bash
+rm -rf .eslintcache
+yarn lint
+```
+
+### Prettier Conflicts
+
+If Prettier and ESLint have conflicting rules:
+
+<CodeGroup>
+```bash yarn
+yarn eslint-check
+```
+
+```bash npm
+npm run eslint-check
+```
+</CodeGroup>
+
+This validates that ESLint and Prettier configurations are compatible.
+
+## Git Issues
+
+### Submodule Problems
+
+Update submodules if you see missing dependencies:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Uncommitted Changes
+
+If you see "working directory not clean" errors:
+
+```bash
+git status
+git stash
+# or commit your changes
+```
+
+## TypeScript Issues
+
+### Type Errors
+
+If you encounter type errors:
+
+1. **Ensure dependencies are installed**:
+   ```bash
+   yarn install
+   ```
+
+2. **Restart your TypeScript server** (in VS Code: `Cmd+Shift+P` → "TypeScript: Restart TS Server")
+
+3. **Check TypeScript version**:
+   ```bash
+   yarn list typescript
+   ```
+
+4. **Verify tsconfig.json** hasn't been modified
+
+### Compilation Issues
+
+Check TypeScript compilation separately:
+
+```bash
+yarn compile:script
+```
+
+## Network and Proxy Issues
+
+### Corporate Proxy
+
+Configure npm to use a proxy:
+
+```bash
+npm config set proxy http://proxy.company.com:8080
+npm config set https-proxy http://proxy.company.com:8080
+```
+
+For Yarn:
+
+```bash
+yarn config set proxy http://proxy.company.com:8080
+yarn config set https-proxy http://proxy.company.com:8080
+```
+
+### Certificate Issues
+
+If you encounter SSL certificate errors:
+
+```bash
+# Temporary workaround (not recommended for production)
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+yarn install
+```
+
+<Warning>
+Disabling certificate validation is a security risk. Only use this temporarily and restore security settings afterward.
+</Warning>
+
+## GitHub Enterprise Authentication
+
+If you're using GitHub Enterprise with your development build, follow the [Enterprise authentication guide](https://github.com/desktop/desktop/blob/development/docs/contributing/github-enterprise-auth-from-dev-build.md).
+
+## Dependency Issues
+
+### Lockfile Conflicts
+
+If you have merge conflicts in `yarn.lock`:
+
+```bash
+git checkout --theirs yarn.lock
+yarn install
+```
+
+### Outdated Dependencies
+
+Check for outdated dependencies:
+
+```bash
+yarn outdated
+```
+
+<Note>
+Be cautious when updating dependencies, as they may introduce breaking changes.
+</Note>
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. **Search existing issues**: Check [GitHub Issues](https://github.com/desktop/desktop/issues) for similar problems
+2. **Check logs**: Review application logs for detailed error messages
+3. **Ask for help**: Open a new issue with:
+   - Your operating system and version
+   - Node.js and Yarn versions
+   - Complete error message
+   - Steps to reproduce
+
+## Next Steps
+
+- Review [Building](/contributing/building) instructions
+- Check [Testing](/contributing/testing) documentation
+- Verify [Linting](/contributing/linting) setup

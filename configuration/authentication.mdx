@@ -1,0 +1,597 @@
+---
+title: "Authentication"
+description: "Learn how GitHub Desktop handles authentication for GitHub, GitHub Enterprise, and generic Git servers"
+---
+
+## Overview
+
+GitHub Desktop provides secure authentication for various Git hosting services, including GitHub.com, GitHub Enterprise Server, and generic Git servers. Authentication enables cloning private repositories, pushing changes, and creating pull requests.
+
+<CardGroup cols={2}>
+  <Card title="OAuth for GitHub" icon="github">
+    Secure OAuth 2.0 authentication for GitHub services
+  </Card>
+  <Card title="Personal Access Tokens" icon="key">
+    Token-based authentication for Git operations
+  </Card>
+  <Card title="SSH Support" icon="lock">
+    Use SSH keys for authentication
+  </Card>
+  <Card title="Credential Storage" icon="shield">
+    Secure storage using OS credential managers
+  </Card>
+</CardGroup>
+
+## GitHub Authentication
+
+### OAuth Sign-In
+
+GitHub Desktop uses OAuth 2.0 for authenticating with GitHub:
+
+<Steps>
+  <Step title="Initiate Sign-In">
+    Click **File** > **Options** > **Accounts** > **Sign in** (GitHub.com or Enterprise)
+  </Step>
+  <Step title="Browser Opens">
+    Your default browser opens to GitHub's authorization page
+  </Step>
+  <Step title="Authorize Application">
+    Review permissions and click **Authorize desktop**
+  </Step>
+  <Step title="Return to Desktop">
+    Browser redirects back to GitHub Desktop with a token
+  </Step>
+  <Step title="Complete">
+    You're signed in and can access your repositories
+  </Step>
+</Steps>
+
+### OAuth Scopes
+
+GitHub Desktop requests these OAuth scopes:
+
+- **`repo`**: Full control of private repositories
+  - Read and write repository data
+  - Create pull requests
+  - Access commit status
+  
+- **`read:org`**: Read organization membership
+  - List organization repositories
+  - View organization membership
+  
+- **`user:email`**: Access user email addresses
+  - Get commit email address
+  - Match commits to user
+
+- **`workflow`**: Update GitHub Actions workflows
+  - Modify workflow files
+  - Trigger workflow runs
+
+<Info>
+OAuth tokens are stored securely in your operating system's credential manager (Credential Manager on Windows, Keychain on macOS, libsecret on Linux).
+</Info>
+
+### Authentication Key Storage
+
+From the source code:
+
+```typescript
+// From app/src/lib/auth.ts
+export function getKeyForAccount(account: Account): string {
+  return getKeyForEndpoint(account.endpoint)
+}
+
+export function getKeyForEndpoint(endpoint: string): string {
+  const appName = __DEV__ ? 'GitHub Desktop Dev' : 'GitHub'
+  return `${appName} - ${endpoint}`
+}
+```
+
+Tokens are stored with keys like:
+- `GitHub - https://api.github.com`
+- `GitHub - https://github.example.com/api/v3`
+
+This allows multiple accounts (GitHub.com and Enterprise) simultaneously.
+
+## GitHub Enterprise Authentication
+
+### Adding Enterprise Server
+
+<Steps>
+  <Step title="Open Accounts">
+    **File** > **Options** > **Accounts**
+  </Step>
+  <Step title="Sign in to Enterprise">
+    Click **Sign in** next to "GitHub Enterprise Server"
+  </Step>
+  <Step title="Enter Server URL">
+    Enter your Enterprise server address:
+    ```
+    https://github.company.com
+    ```
+  </Step>
+  <Step title="Authenticate">
+    Complete OAuth flow on your Enterprise server
+  </Step>
+</Steps>
+
+### Enterprise Requirements
+
+- GitHub Enterprise Server 2.15 or later
+- OAuth application must be registered
+- Network access to the server
+- Valid SSL certificate (or exception configured)
+
+### Multiple Enterprise Servers
+
+You can connect to multiple Enterprise servers:
+- Each server requires separate sign-in
+- Separate OAuth tokens for each
+- Switch between servers when cloning/creating PRs
+
+## Generic Git Authentication
+
+For non-GitHub Git servers (GitLab, Bitbucket, self-hosted, etc.):
+
+### Username and Password
+
+GitHub Desktop can store credentials for generic Git servers:
+
+```typescript
+// From app/src/lib/generic-git-auth.ts
+export const genericGitAuthUsernameKeyPrefix = 'genericGitAuth/username/'
+
+function getKeyForUsername(endpoint: string): string {
+  return `${genericGitAuthUsernameKeyPrefix}${endpoint}`
+}
+
+export function getGenericUsername(endpoint: string): string | null {
+  const key = getKeyForUsername(endpoint)
+  return localStorage.getItem(key)
+}
+
+export function setGenericPassword(
+  endpoint: string,
+  username: string,
+  password: string
+): Promise<void> {
+  const key = getKeyForEndpoint(endpoint)
+  return TokenStore.setItem(key, username, password)
+}
+
+export function setGenericCredential(
+  endpoint: string,
+  username: string,
+  password: string
+) {
+  setGenericUsername(endpoint, username)
+  return setGenericPassword(endpoint, username, password)
+}
+```
+
+### When Credentials Are Requested
+
+GitHub Desktop prompts for credentials when:
+1. Cloning a repository from a non-GitHub URL
+2. Pushing to a remote that requires authentication
+3. Fetching from a private repository
+
+**Credential Prompt:**
+- Username field
+- Password/token field
+- "Remember credentials" checkbox
+
+<Tip>
+For generic Git servers, use a personal access token instead of your password for better security.
+</Tip>
+
+## Personal Access Tokens
+
+### Creating GitHub Tokens
+
+<Steps>
+  <Step title="Open GitHub Settings">
+    Go to GitHub.com > **Settings** > **Developer settings** > **Personal access tokens** > **Tokens (classic)**
+  </Step>
+  <Step title="Generate New Token">
+    Click **Generate new token (classic)**
+  </Step>
+  <Step title="Set Scopes">
+    Select scopes:
+    - ✓ `repo` (full control of private repositories)
+    - ✓ `workflow` (update workflows)
+    - ✓ `read:org` (read org membership)
+  </Step>
+  <Step title="Generate">
+    Click **Generate token** and copy the token immediately
+  </Step>
+  <Step title="Use in Desktop">
+    Sign in to GitHub Desktop using OAuth (tokens are automatically managed)
+  </Step>
+</Steps>
+
+<Warning>
+Personal access tokens grant access to your account. Keep them secret and never commit them to repositories.
+</Warning>
+
+### Token Expiration
+
+GitHub tokens can expire:
+- GitHub recommends setting expiration dates
+- GitHub Desktop will prompt for re-authentication when token expires
+- Sign in again to refresh the token
+
+## SSH Authentication
+
+### Using SSH Keys
+
+GitHub Desktop supports SSH authentication:
+
+<Steps>
+  <Step title="Generate SSH Key">
+    ```bash
+    ssh-keygen -t ed25519 -C "your_email@example.com"
+    ```
+  </Step>
+  <Step title="Add to SSH Agent">
+    ```bash
+    eval "$(ssh-agent -s)"
+    ssh-add ~/.ssh/id_ed25519
+    ```
+  </Step>
+  <Step title="Add to GitHub">
+    Copy public key:
+    ```bash
+    cat ~/.ssh/id_ed25519.pub
+    ```
+    
+    Add to GitHub: **Settings** > **SSH and GPG keys** > **New SSH key**
+  </Step>
+  <Step title="Use SSH URLs">
+    Clone repositories using SSH URLs:
+    ```
+    git@github.com:user/repo.git
+    ```
+  </Step>
+</Steps>
+
+### SSH vs HTTPS
+
+<Tabs>
+  <Tab title="HTTPS (Recommended)">
+    **Pros:**
+    - Works through most firewalls
+    - No SSH key setup required
+    - Easier for beginners
+    - GitHub Desktop handles tokens automatically
+    
+    **Cons:**
+    - Requires token or OAuth
+    - Some corporate proxies may inspect traffic
+    
+    **URL Format:**
+    ```
+    https://github.com/user/repo.git
+    ```
+  </Tab>
+  
+  <Tab title="SSH">
+    **Pros:**
+    - More secure (key-based)
+    - No password prompts
+    - Works well for automation
+    - Can use SSH config for custom settings
+    
+    **Cons:**
+    - Often blocked by corporate firewalls
+    - Requires SSH key setup
+    - Doesn't work through HTTP proxies
+    
+    **URL Format:**
+    ```
+    git@github.com:user/repo.git
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+GitHub Desktop works with both HTTPS and SSH remotes. However, OAuth authentication only applies to HTTPS. SSH uses your SSH keys managed by `ssh-agent`.
+</Info>
+
+## Credential Storage
+
+### Operating System Integration
+
+GitHub Desktop uses the OS credential manager:
+
+<Tabs>
+  <Tab title="Windows">
+    **Windows Credential Manager**
+    
+    Credentials stored in:
+    - Control Panel > Credential Manager
+    - Windows Credentials > Generic Credentials
+    
+    Entries named:
+    - `GitHub - https://api.github.com`
+    - `genericGitAuth/username/https://gitlab.com`
+    
+    **View/Edit:**
+    1. Open Credential Manager
+    2. Find GitHub Desktop entries
+    3. Edit or remove as needed
+  </Tab>
+  
+  <Tab title="macOS">
+    **macOS Keychain**
+    
+    Credentials stored in:
+    - Keychain Access app
+    - Login keychain
+    
+    Entries named:
+    - `GitHub - https://api.github.com`
+    
+    **View/Edit:**
+    1. Open Keychain Access
+    2. Search for "GitHub"
+    3. Double-click to view or delete
+  </Tab>
+  
+  <Tab title="Linux">
+    **libsecret / Secret Service API**
+    
+    Credentials stored in:
+    - GNOME Keyring (GNOME)
+    - KWallet (KDE)
+    - Other Secret Service implementations
+    
+    **View/Edit:**
+    1. Use Seahorse (GNOME) or KWalletManager (KDE)
+    2. Find GitHub Desktop entries
+    3. Edit or remove
+  </Tab>
+</Tabs>
+
+### Token Lifetime
+
+Tokens are stored until:
+- You sign out of GitHub Desktop
+- You manually remove from credential manager
+- Token expires (GitHub tokens)
+- Revoked on GitHub.com/Enterprise
+
+## Two-Factor Authentication (2FA)
+
+### GitHub 2FA Support
+
+GitHub Desktop fully supports 2FA:
+
+<Steps>
+  <Step title="Sign In">
+    Start the OAuth sign-in process
+  </Step>
+  <Step title="Enter Password">
+    Enter your GitHub password
+  </Step>
+  <Step title="2FA Prompt">
+    Enter your 2FA code:
+    - Authenticator app code
+    - SMS code
+    - Security key
+  </Step>
+  <Step title="Authorize">
+    Complete authorization
+  </Step>
+</Steps>
+
+<Info>
+Once authorized with OAuth, you don't need to enter 2FA codes for each Git operation. The OAuth token handles authentication.
+</Info>
+
+### 2FA with HTTPS Git
+
+If using HTTPS without OAuth:
+- Password authentication is disabled for 2FA accounts
+- Must use a personal access token instead
+- Create token on GitHub.com > Settings > Developer settings
+- Use token as password when prompted
+
+## Authentication Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="OAuth Sign-In Fails">
+    If OAuth authentication doesn't work:
+    
+    **Check:**
+    - Browser opens to GitHub?
+    - Firewalls blocking redirect?
+    - Correct server URL for Enterprise?
+    - Try signing out and back in
+    
+    **Fix:**
+    ```bash
+    # Clear stored credentials
+    # Windows: Credential Manager
+    # macOS: Keychain Access  
+    # Linux: Seahorse/KWalletManager
+    ```
+  </Accordion>
+  
+  <Accordion title="Authentication Fails After Working">
+    If authentication stops working:
+    
+    **Reasons:**
+    - Token expired
+    - Token revoked on GitHub
+    - Password changed
+    - 2FA enabled/disabled
+    
+    **Fix:**
+    1. Sign out of GitHub Desktop
+    2. Sign back in
+    3. Re-authorize OAuth
+  </Accordion>
+  
+  <Accordion title="SSH Key Not Working">
+    If SSH authentication fails:
+    
+    **Check:**
+    ```bash
+    # Test SSH connection
+    ssh -T git@github.com
+    
+    # Verify key is added
+    ssh-add -l
+    
+    # Check SSH config
+    cat ~/.ssh/config
+    ```
+    
+    **Common Issues:**
+    - SSH key not added to ssh-agent
+    - Public key not added to GitHub
+    - Wrong permissions on `~/.ssh` directory
+    - Firewall blocking port 22
+  </Accordion>
+  
+  <Accordion title="Generic Git Credentials Not Saved">
+    If credentials aren't remembered:
+    
+    **Check:**
+    - "Remember credentials" was checked
+    - Credential manager is accessible
+    - Permissions on credential storage
+    
+    **Manual Storage:**
+    ```bash
+    # Configure Git credential helper
+    git config --global credential.helper manager  # Windows
+    git config --global credential.helper osxkeychain  # macOS  
+    git config --global credential.helper libsecret  # Linux
+    ```
+  </Accordion>
+  
+  <Accordion title="Enterprise Server Not Accessible">
+    If Enterprise server sign-in fails:
+    
+    **Verify:**
+    - Correct server URL
+    - Server is reachable from your network
+    - SSL certificate is valid
+    - OAuth app is configured on server
+    - You have an account on the server
+    
+    **Test:**
+    ```bash
+    curl https://github.company.com/api/v3
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Signing Out
+
+### Remove Account
+
+<Steps>
+  <Step title="Open Accounts">
+    **File** > **Options** > **Accounts**
+  </Step>
+  <Step title="Sign Out">
+    Click **Sign out** next to the account
+  </Step>
+  <Step title="Confirm">
+    Confirm you want to sign out
+  </Step>
+  <Step title="Token Removed">
+    OAuth token is deleted from credential manager
+  </Step>
+</Steps>
+
+### What Happens
+
+When you sign out:
+- OAuth token is removed
+- Can no longer clone private repos
+- Can't push to repositories
+- Can't create pull requests
+- Local repositories remain intact
+
+### Removing Credentials
+
+```typescript
+// From app/src/lib/generic-git-auth.ts
+export function deleteGenericCredential(endpoint: string, username: string) {
+  localStorage.removeItem(getKeyForUsername(endpoint))
+  return TokenStore.deleteItem(getKeyForEndpoint(endpoint), username)
+}
+```
+
+Generic Git credentials can be removed:
+- Sign out from Accounts settings
+- Manually delete from OS credential manager
+- Clear browser data (for OAuth state)
+
+## Best Practices
+
+<Tip>
+**Use OAuth for GitHub**: OAuth is more secure than personal access tokens and provides a better user experience with automatic token refresh.
+</Tip>
+
+1. **Keep Tokens Secret**
+   - Never commit tokens to repositories
+   - Don't share tokens with others
+   - Regenerate if exposed
+
+2. **Use HTTPS in Corporate Networks**
+   - HTTPS works through most proxies
+   - SSH often blocked by firewalls
+   - Easier to troubleshoot
+
+3. **Enable 2FA**
+   - Adds extra security layer
+   - Required for many organizations
+   - Works seamlessly with OAuth
+
+4. **Review Token Scopes**
+   - Only grant necessary permissions
+   - Audit tokens periodically
+   - Revoke unused tokens
+
+5. **Separate Work and Personal**
+   - Use different accounts for work/personal
+   - Sign in to appropriate account per repository
+   - Consider separate Git email configs
+
+## Security Considerations
+
+### Token Security
+
+- **Storage**: Tokens encrypted by OS credential manager
+- **Transmission**: Always sent over HTTPS
+- **Scope**: Limited to requested permissions
+- **Rotation**: Can be revoked and regenerated
+
+### SSH Key Security
+
+- **Private Key**: Keep private, never share
+- **Passphrase**: Use strong passphrase on private key
+- **Agent**: Use ssh-agent to avoid repeated passphrase entry
+- **Key Type**: Use Ed25519 or RSA 4096-bit keys
+
+### Revoking Access
+
+Revoke GitHub Desktop access:
+
+1. Go to GitHub.com > **Settings** > **Applications**
+2. Find "GitHub Desktop" under Authorized OAuth Apps
+3. Click **Revoke**
+
+This invalidates all tokens for GitHub Desktop.
+
+## Related Topics
+
+- [Preferences](/configuration/preferences)
+- [Repository Management](/features/repository-management)
+- [Git Configuration](/configuration/git-config)
+- [Proxies](/configuration/proxies)

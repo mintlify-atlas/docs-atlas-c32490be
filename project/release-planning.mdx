@@ -1,0 +1,128 @@
+---
+title: Release Planning
+description: Understand how GitHub Desktop plans, schedules, and ships releases to production
+---
+
+## Release Structure
+
+GitHub Desktop organizes releases in two complementary ways:
+
+<Info>
+**Marketing releases** represent high-level planned features (e.g., 1.4, 1.5), while **milestones** track specific issues and pull requests for upcoming versions (e.g., 1.4.1, 1.4.2, 1.5.0).
+</Info>
+
+### Release Cadence
+
+GitHub Desktop aims to ship updates to production approximately **every two weeks**, ensuring a continuous flow of improvements to users.
+
+<Steps>
+  <Step title="Development">
+    Features and fixes are developed on feature branches and merged to the development branch.
+  </Step>
+  
+  <Step title="Beta Testing">
+    Changes are published to the beta channel for testing and validation.
+  </Step>
+  
+  <Step title="Production Release">
+    After beta validation, changes are released to all users in the production channel.
+  </Step>
+</Steps>
+
+Track release progress in the [current milestones](https://github.com/desktop/desktop/milestones?direction=desc&sort=completeness&state=open) on GitHub.
+
+## Pull Request Scheduling
+
+Pull requests for user-facing changes should have a milestone associated with them to indicate when they should be merged.
+
+### Features
+
+<Accordion title="Feature Development Process">
+  **When to assign milestones:**
+  - Assign a milestone as soon as possible to indicate the anticipated release
+  - Helps track progress toward marketing release goals
+  
+  **Feature flags:**
+  - New features should use [feature flags](https://github.com/desktop/desktop/blob/development/docs/technical/feature-flagging.md) for controlled rollout
+  - Beta channel users can test and provide feedback before general availability
+  - Enables gradual feature rollout and quick rollback if issues arise
+  
+  **Beta channel:**
+  - Subscribe to the [beta channel](https://github.com/desktop/desktop#beta-channel) to test upcoming features
+  - Provide feedback to help improve features before production release
+</Accordion>
+
+### Bugfixes
+
+<Accordion title="Bugfix Scheduling Process">
+  **Milestone assignment:**
+  - Pull requests can be opened early for bugfixes and unplanned work
+  - **Do not** assign a milestone until after review and approval
+  - Late assignment allows maintainers to discuss optimal merge timing
+  
+  **Approval process:**
+  1. Reviewer approves the pull request
+  2. Reviewer assigns a milestone to propose merge timing
+  3. Reviewer optionally adds context about milestone choice
+  4. Other maintainers have 24 hours to discuss or acknowledge
+  
+  **Decision factors:**
+  
+  Consider these factors when choosing a milestone:
+  
+  - **Priority**: How harmful is the bug? How many users are affected?
+  - **Impact**: Does this need time on the beta channel for validation?
+  - **Timing**: How close are we to the current release? Can it wait a few days?
+</Accordion>
+
+### Community Contributions
+
+<Note>
+Community pull requests and features follow the same process as bugfixes: no milestone assignment until after review and approval.
+</Note>
+
+The 24-hour approval window and milestone discussion process applies to all community contributions to ensure proper evaluation and timing.
+
+## Merge Process
+
+<Steps>
+  <Step title="Review and Approval">
+    Pull request is reviewed and approved by a maintainer. Milestone is proposed and assigned.
+  </Step>
+  
+  <Step title="24-Hour Window">
+    Other maintainers have 24 hours to discuss the proposed milestone or provide acknowledgment.
+  </Step>
+  
+  <Step title="Merge When Ready">
+    After the approval window, a maintainer merges the pull request when the milestone corresponds with the current release.
+  </Step>
+  
+  <Step title="Link Issues">
+    The merging maintainer ensures any issues linked in the PR description are assigned to the same milestone (they'll be auto-closed on merge).
+  </Step>
+</Steps>
+
+## Release Channels
+
+### Beta Channel
+
+The beta channel receives:
+- New features behind feature flags
+- Bugfixes that need validation
+- Changes requiring broader testing before production
+
+**Publication frequency:** Weekly, if contributions are available
+
+### Production Channel
+
+The production channel receives:
+- Validated features from beta
+- Tested bugfixes
+- Stable, production-ready changes
+
+**Publication frequency:** Approximately every two weeks
+
+<Info>
+All merged contributions are first published to beta before reaching production, ensuring thorough testing and validation.
+</Info>

@@ -1,0 +1,505 @@
+---
+title: "Branches"
+description: "Learn how to create, switch, merge, rename, and delete branches in GitHub Desktop"
+---
+
+## Overview
+
+Branches are fundamental to Git workflows, allowing you to develop features, fix bugs, and experiment without affecting the main codebase. GitHub Desktop makes branch management intuitive and visual.
+
+<CardGroup cols={2}>
+  <Card title="Create Branches" icon="code-branch">
+    Create new branches from any commit or branch
+  </Card>
+  <Card title="Switch Branches" icon="arrows-turn-to-dots">
+    Quickly switch between branches with automatic stashing
+  </Card>
+  <Card title="Merge Branches" icon="code-merge">
+    Merge branches with conflict detection and resolution
+  </Card>
+  <Card title="Track Remote" icon="cloud">
+    Automatically track branches with upstream remotes
+  </Card>
+</CardGroup>
+
+## Understanding Branches
+
+### Branch Basics
+
+A branch is a pointer to a specific commit in your repository's history. Branches allow you to:
+
+- Develop features in isolation
+- Fix bugs without affecting production code
+- Experiment with new ideas safely
+- Collaborate with others on specific changes
+
+### Default Branch
+
+Every repository has a default branch (usually `main` or `master`):
+- New commits are made to this branch by default
+- Pull requests typically merge into this branch
+- The default branch represents the production or stable code
+
+## Creating Branches
+
+### Create from Current Branch
+
+<Steps>
+  <Step title="Open Branch Menu">
+    Click the **Current Branch** dropdown in the toolbar
+  </Step>
+  <Step title="Click New Branch">
+    Click the **New Branch** button
+  </Step>
+  <Step title="Name the Branch">
+    Enter a descriptive branch name (e.g., `feature/add-login`, `fix/crash-on-startup`)
+  </Step>
+  <Step title="Create Branch">
+    Click **Create Branch** to create and switch to the new branch
+  </Step>
+</Steps>
+
+### Create from Specific Commit
+
+<Steps>
+  <Step title="Open History">
+    Switch to the **History** tab
+  </Step>
+  <Step title="Find Commit">
+    Locate the commit you want to branch from
+  </Step>
+  <Step title="Right-Click Commit">
+    Right-click the commit and select **Create Branch from Commit**
+  </Step>
+  <Step title="Name and Create">
+    Enter a branch name and click **Create Branch**
+  </Step>
+</Steps>
+
+### Branch Creation Implementation
+
+```typescript
+// From app/src/lib/git/branch.ts
+export async function createBranch(
+  repository: Repository,
+  name: string,
+  startPoint: string | null,
+  noTrack?: boolean
+): Promise<void> {
+  const args = startPoint !== null 
+    ? ['branch', name, startPoint] 
+    : ['branch', name]
+  
+  // Don't track if branching from a remote branch
+  // This prevents pushing to the upstream of a fork
+  if (noTrack) {
+    args.push('--no-track')
+  }
+  
+  await git(args, repository.path, 'createBranch')
+}
+```
+
+<Info>
+When creating a branch from a remote branch, GitHub Desktop automatically adds `--no-track` to prevent accidentally pushing to the fork's upstream.
+</Info>
+
+## Switching Branches
+
+### Switch to Existing Branch
+
+<Steps>
+  <Step title="Open Branch List">
+    Click the **Current Branch** dropdown
+  </Step>
+  <Step title="Select Branch">
+    - Click a branch to switch to it
+    - Or search for a branch by typing
+  </Step>
+  <Step title="Handle Uncommitted Changes">
+    If you have uncommitted changes:
+    - **Bring changes**: Move changes to the new branch
+    - **Stash changes**: Save changes for later
+    - **Cancel**: Return to current branch
+  </Step>
+</Steps>
+
+### Automatic Stashing
+
+When switching branches with uncommitted changes:
+
+1. GitHub Desktop automatically creates a stash
+2. Switches to the target branch
+3. Attempts to apply the stash
+4. If conflicts occur, leaves the stash for manual application
+
+<Tip>
+GitHub Desktop uses a special marker (`!!GitHub_Desktop<branch>`) to identify stashes it creates, allowing automatic cleanup.
+</Tip>
+
+## Branch List Organization
+
+The branch dropdown organizes branches into sections:
+
+### Default Branch
+- Shows the repository's default branch at the top
+- Usually `main` or `master`
+
+### Recent Branches
+- Branches you've worked on recently
+- Sorted by last checkout time
+
+### Other Branches
+- All other local branches alphabetically
+
+### Pull Request Branches
+- Branches associated with open pull requests
+- Grouped by PR status
+
+### Remote Branches
+- Branches on the remote that don't exist locally
+- Can be checked out with one click
+
+## Renaming Branches
+
+Rename the current branch or any other branch:
+
+<Steps>
+  <Step title="Open Branch Menu">
+    Click **Current Branch** dropdown
+  </Step>
+  <Step title="Find Branch to Rename">
+    Right-click the branch you want to rename
+  </Step>
+  <Step title="Select Rename">
+    Click **Rename...** from the context menu
+  </Step>
+  <Step title="Enter New Name">
+    Type the new branch name
+  </Step>
+  <Step title="Rename">
+    Click **Rename** to update the branch name
+  </Step>
+</Steps>
+
+### Rename Implementation
+
+```typescript
+// From app/src/lib/git/branch.ts
+export async function renameBranch(
+  repository: Repository,
+  branch: Branch,
+  newName: string,
+  force?: boolean
+): Promise<void> {
+  try {
+    await git(
+      ['branch', force ? '-M' : '-m', branch.nameWithoutRemote, newName],
+      repository.path,
+      'renameBranch'
+    )
+  } catch (error) {
+    // Handle case-only renames on case-insensitive filesystems
+    if (isGitError(error) && error.result.gitError === DugiteError.BranchAlreadyExists) {
+      const stderr = coerceToString(error.result.stderr)
+      const m = /fatal: a branch named '(.+?)' already exists/.exec(stderr)
+      
+      if (m && m[1].toLowerCase() === newName.toLowerCase()) {
+        // Case-only rename - retry with -M flag
+        return renameBranch(repository, branch, newName, true)
+      }
+    }
+    throw error
+  }
+}
+```
+
+<Warning>
+If you rename a branch that's been pushed to a remote, you'll need to delete the old remote branch and push the renamed one.
+</Warning>
+
+## Deleting Branches
+
+### Delete Local Branch
+
+<Steps>
+  <Step title="Open Branch Menu">
+    Click **Current Branch** dropdown
+  </Step>
+  <Step title="Find Branch">
+    Right-click the branch to delete
+  </Step>
+  <Step title="Delete">
+    Click **Delete** from the context menu
+  </Step>
+  <Step title="Confirm">
+    Confirm the deletion in the dialog
+  </Step>
+</Steps>
+
+<Warning>
+Deleting a branch removes the branch pointer, but commits remain in Git's object database. If you delete a branch with unmerged commits, you may lose access to those commits.
+</Warning>
+
+### Delete Remote Branch
+
+<Steps>
+  <Step title="View Remote Branches">
+    In the branch dropdown, find branches under the remote section
+  </Step>
+  <Step title="Right-Click Remote Branch">
+    Right-click the remote branch
+  </Step>
+  <Step title="Delete on Remote">
+    Select **Delete on remote**
+  </Step>
+  <Step title="Confirm">
+    Confirm you want to delete the branch from the remote repository
+  </Step>
+</Steps>
+
+### Delete Implementation
+
+```typescript
+// From app/src/lib/git/branch.ts
+export async function deleteLocalBranch(
+  repository: Repository,
+  branchName: string
+): Promise<true> {
+  await git(['branch', '-D', branchName], repository.path, 'deleteLocalBranch')
+  return true
+}
+
+export async function deleteRemoteBranch(
+  repository: Repository,
+  remote: IRemote,
+  remoteBranchName: string
+): Promise<true> {
+  const args = ['push', remote.name, `:${remoteBranchName}`]
+  
+  const result = await git(args, repository.path, 'deleteRemoteBranch', {
+    env: await envForRemoteOperation(remote.url),
+  })
+  
+  // Clean up local remote-tracking ref
+  if (result.gitError === DugiteError.BranchDeletionFailed) {
+    const ref = `refs/remotes/${remote.name}/${remoteBranchName}`
+    await deleteRef(repository, ref)
+  }
+  
+  return true
+}
+```
+
+## Merging Branches
+
+### Merge into Current Branch
+
+<Steps>
+  <Step title="Switch to Target Branch">
+    Check out the branch you want to merge into (e.g., `main`)
+  </Step>
+  <Step title="Open Branch Menu">
+    Click **Branch** > **Merge into current branch**
+  </Step>
+  <Step title="Select Source Branch">
+    Choose the branch to merge from the list
+  </Step>
+  <Step title="Review Merge Info">
+    GitHub Desktop shows:
+    - Number of commits to merge
+    - Potential conflicts detected
+  </Step>
+  <Step title="Merge">
+    Click **Merge [branch] into [current-branch]**
+  </Step>
+</Steps>
+
+### Merge Strategies
+
+GitHub Desktop uses standard Git merge strategies:
+
+- **Fast-forward**: When possible, simply moves the branch pointer forward
+- **Merge commit**: Creates a new merge commit when branches have diverged
+- **Conflict resolution**: Stops and asks for manual resolution when conflicts occur
+
+## Comparing Branches
+
+View differences between branches:
+
+<Steps>
+  <Step title="Open Branch Menu">
+    Click **Branch** > **Compare to Branch**
+  </Step>
+  <Step title="Select Branch">
+    Choose the branch to compare with
+  </Step>
+  <Step title="Review Differences">
+    See:
+    - Commits that differ between branches
+    - Files changed
+    - Line-by-line diffs
+  </Step>
+</Steps>
+
+## Branch Status Indicators
+
+Branches in the list show visual indicators:
+
+- **Ahead/Behind**: Shows how many commits ahead or behind the upstream
+- **Current Branch**: Bold text and checkmark icon
+- **Default Branch**: Star icon
+- **Published**: Cloud icon indicates the branch exists on remote
+- **PR Indicator**: Icon shows if there's an associated pull request
+
+## Finding Merged Branches
+
+Identify branches that have been fully merged:
+
+```typescript
+// From app/src/lib/git/branch.ts
+export async function getMergedBranches(
+  repository: Repository,
+  branchName: string
+): Promise<Map<string, string>> {
+  const args = ['branch', '--merged', branchName, '--format=%(refname)']
+  const mergedBranches = new Map<string, string>()
+  
+  const { stdout } = await git(args, repository.path, 'mergedBranches')
+  
+  for (const branch of parse(stdout)) {
+    // Don't include the comparison branch itself
+    if (branch.canonicalRef !== canonicalBranchRef) {
+      mergedBranches.set(branch.canonicalRef, branch.sha)
+    }
+  }
+  
+  return mergedBranches
+}
+```
+
+Use this to safely clean up branches that have been merged into the main branch.
+
+## Upstream Tracking
+
+### Publishing Branches
+
+Publish a local branch to the remote:
+
+<Steps>
+  <Step title="Create or Switch to Branch">
+    Ensure you're on the branch you want to publish
+  </Step>
+  <Step title="Click Publish">
+    Click **Publish branch** in the toolbar
+  </Step>
+  <Step title="Confirm">
+    GitHub Desktop pushes the branch and sets up tracking
+  </Step>
+</Steps>
+
+### Setting Upstream
+
+When publishing a branch, GitHub Desktop automatically:
+1. Pushes the branch to `origin`
+2. Sets up upstream tracking with `--set-upstream`
+3. Enables pull/push for the branch
+
+## Branch Naming Conventions
+
+Common branch naming patterns:
+
+<CodeGroup>
+```text Feature Branches
+feature/user-authentication
+feature/add-payment-processing
+```
+
+```text Bug Fix Branches
+fix/login-crash
+fix/memory-leak-in-parser
+bugfix/issue-123
+```
+
+```text Release Branches
+release/v1.0.0
+release/2024.03
+```
+
+```text Hotfix Branches
+hotfix/security-patch
+hotfix/critical-bug
+```
+</CodeGroup>
+
+<Tip>
+Use consistent naming conventions across your team. Common patterns include `type/description` or `type/issue-number-description`.
+</Tip>
+
+## Protected Branches
+
+When working with protected branches on GitHub:
+
+- **Force push blocked**: Cannot force push to protected branches
+- **Review required**: May require pull request reviews before merging
+- **Status checks**: CI/CD checks must pass before merging
+- **Admin bypass**: Repository admins may have special permissions
+
+GitHub Desktop respects these protections and shows warnings when applicable.
+
+## Best Practices
+
+1. **Use Descriptive Names**: Branch names should clearly indicate their purpose
+2. **Keep Branches Short-Lived**: Merge or delete branches after completing work
+3. **Update from Main Regularly**: Keep feature branches up to date with the default branch
+4. **Delete Merged Branches**: Clean up branches after merging to avoid clutter
+5. **Don't Commit to Main Directly**: Use feature branches for all changes
+6. **Use Prefixes**: Organize branches with prefixes like `feature/`, `fix/`, `docs/`
+
+## Keyboard Shortcuts
+
+| Action | Windows/Linux | macOS |
+|--------|--------------|-------|
+| Switch branch | `Ctrl+B` | `Cmd+B` |
+| New branch | `Ctrl+Shift+N` | `Cmd+Shift+N` |
+| Find branch | `Ctrl+P` | `Cmd+P` |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot Switch Branches">
+    If you can't switch branches:
+    - **Uncommitted changes conflict**: Commit, stash, or discard changes
+    - **Unmerged files**: Resolve merge conflicts before switching
+    - **Detached HEAD**: Create a branch from current commit first
+  </Accordion>
+  
+  <Accordion title="Branch Deleted by Mistake">
+    If you accidentally deleted a branch:
+    1. Find the commit SHA in the History tab
+    2. Create a new branch from that commit
+    3. Or use `git reflog` in terminal to find the deleted branch's tip
+  </Accordion>
+  
+  <Accordion title="Merge Conflicts">
+    When merging causes conflicts:
+    - GitHub Desktop highlights conflicted files
+    - Resolve conflicts in your editor or using the conflict resolver
+    - Stage resolved files and complete the merge
+    - See [Merge Conflicts](/features/merge-conflicts) for detailed help
+  </Accordion>
+  
+  <Accordion title="Cannot Delete Branch">
+    Branches cannot be deleted if:
+    - It's the currently checked out branch (switch first)
+    - It has unmerged commits (use `-D` flag to force)
+    - It's the default branch for the repository
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+- [Merge Conflicts](/features/merge-conflicts)
+- [Pull Requests](/features/pull-requests)
+- [Rebasing](/workflows/rebasing)
+- [Cherry-Picking](/workflows/cherry-picking)

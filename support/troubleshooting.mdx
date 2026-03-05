@@ -1,0 +1,271 @@
+---
+title: Troubleshooting
+description: Common problems and solutions for GitHub Desktop
+---
+
+This guide helps you resolve common issues you may encounter while using GitHub Desktop.
+
+<Note>
+Before troubleshooting, make sure you're running the latest version of GitHub Desktop. Many issues are resolved in newer releases.
+</Note>
+
+## General Troubleshooting Steps
+
+<Accordion title="How do I find GitHub Desktop log files?">
+  Log files can help diagnose issues with GitHub Desktop. They are located in:
+  
+  **macOS:**
+  - `~/Library/Application Support/GitHub Desktop/logs/`
+  - Organized by date: `YYYY-MM-DD.desktop.production.log`
+  
+  **Windows:**
+  - `%APPDATA%\GitHub Desktop\logs\`
+  - Organized by date: `YYYY-MM-DD.desktop.production.log`
+</Accordion>
+
+<Accordion title="Where are installer logs located?">
+  Installation and update problems are tracked in separate log files:
+  
+  **macOS:**
+  - `~/Library/Caches/com.github.GitHubClient.ShipIt/ShipIt_stderr.log`
+  - Check the end of the file for recent activity
+  
+  **Windows:**
+  - `%LOCALAPPDATA%\GitHubDesktop\SquirrelSetup.log` (for updates)
+  - `%LOCALAPPDATA%\SquirrelSetup.log` (for initial installation)
+</Accordion>
+
+<Accordion title="How do I completely uninstall and reinstall GitHub Desktop?">
+  **macOS:**
+  1. Quit GitHub Desktop
+  2. Delete the application from `/Applications`
+  3. Remove data directory: `~/Library/Application Support/GitHub Desktop/`
+  4. Remove cache: `~/Library/Caches/com.github.GitHubClient.ShipIt/`
+  5. Download and reinstall from [desktop.github.com](https://desktop.github.com)
+  
+  **Windows:**
+  1. Uninstall via Control Panel or Settings
+  2. Delete `%LOCALAPPDATA%\GitHubDesktop\`
+  3. Delete `%APPDATA%\GitHub Desktop\`
+  4. Download and reinstall from [desktop.github.com](https://desktop.github.com)
+</Accordion>
+
+## macOS Issues
+
+<Accordion title="'The username or passphrase you entered is not correct' error after signing in">
+  **Problem:** This error appears even though your credentials are correct.
+  
+  **Cause:** The macOS Keychain is in an invalid state. This has been reported from macOS High Sierra 10.13 to macOS Mojave 10.14.5 and later.
+  
+  **Solution:**
+  1. Open `Keychain Access.app`
+  2. Right-click on the `login` keychain and lock it
+  3. Right-click on the `login` keychain and unlock it
+  4. Sign into your GitHub account again in GitHub Desktop
+  
+  Related issue: [#3263](https://github.com/desktop/desktop/issues/3263)
+</Accordion>
+
+<Accordion title="'Could not create temporary directory: Permission denied' when checking for updates">
+  **Problem:** Update checks fail with a permission denied error.
+  
+  **Cause:** Missing permissions for the ShipIt cache directory used during updates.
+  
+  **Solution:**
+  1. Close GitHub Desktop
+  2. Open Finder and navigate to `~/Library/Caches/`
+  3. Right-click `com.github.GitHubClient.ShipIt` and select **Get Info**
+  4. Expand the **Sharing & Permissions** section
+  5. If you don't see "You can read and write", add yourself with "Read & Write" permissions
+  6. Restart GitHub Desktop and check for updates
+  
+  Related issue: [#4115](https://github.com/desktop/desktop/issues/4115)
+</Accordion>
+
+<Accordion title="GitHub Desktop repeatedly prompts for admin password to install helper tool">
+  **Problem:** macOS asks for admin password every time GitHub Desktop starts or updates.
+  
+  **Cause:** The application folder ownership is set to `root` instead of your user account. This often happens after using macOS Migration Assistant.
+  
+  **Solution:**
+  
+  Run these commands in Terminal:
+  ```sh
+  sudo chown -R ${USER}:staff /Applications/GitHub\ Desktop.app
+  chmod -R g+w /Applications/GitHub\ Desktop.app
+  ```
+  
+  Related issue: [#13956](https://github.com/desktop/desktop/issues/13956)
+</Accordion>
+
+## Windows Issues
+
+<Accordion title="Window is hidden after detaching secondary monitor">
+  **Problem:** GitHub Desktop window is not visible after disconnecting a secondary monitor.
+  
+  **Cause:** Desktop remembers the window position on the disconnected monitor.
+  
+  **Solution:**
+  1. Close GitHub Desktop
+  2. Delete `%APPDATA%\GitHub Desktop\window-state.json`
+  3. Restart GitHub Desktop
+  
+  Related issue: [#2107](https://github.com/desktop/desktop/issues/2107)
+</Accordion>
+
+<Accordion title="Certificate revocation check fails on corporate networks">
+  **Problem:** Git operations fail with error:
+  ```
+  fatal: unable to access 'https://github.com/...': schannel: next InitializeSecurityContext failed: 
+  Unknown error (0x80092012) - The revocation function was unable to check revocation for the certificate.
+  ```
+  
+  **Cause:** Corporate networks may block Windows certificate revocation checks.
+  
+  <Warning>
+  This workaround should only be used as a last resort on restricted corporate networks. It disables an important security feature.
+  </Warning>
+  
+  **Solution:**
+  
+  Run this command in Git Bash or Command Prompt:
+  ```shellsession
+  git config --global http.schannelCheckRevoke false
+  ```
+  
+  Related issue: [#3326](https://github.com/desktop/desktop/issues/3326)
+</Accordion>
+
+<Accordion title="Black screen when launching GitHub Desktop">
+  **Problem:** Application launches but shows only a black screen.
+  
+  **Cause:** Some graphics cards have issues with hardware acceleration.
+  
+  **Solution:**
+  
+  Disable hardware acceleration by setting an environment variable:
+  1. Open PowerShell
+  2. Run: `$env:GITHUB_DESKTOP_DISABLE_HARDWARE_ACCELERATION=1`
+  3. Launch GitHub Desktop
+  
+  To make this permanent, add the environment variable to your system settings.
+  
+  Related issue: [#3921](https://github.com/desktop/desktop/issues/3921)
+</Accordion>
+
+<Accordion title="'Failed to open CA file' error after update">
+  **Problem:** Error message like:
+  ```
+  fatal: unable to access 'https://github.com/.../...git/': schannel: failed to open CA file 
+  'C:/Users/.../AppData/Local/GitHubDesktop/app-x.x.x/resources/app/git/mingw64/bin/curl-ca-bundle.crt': 
+  No such file or directory
+  ```
+  
+  **Cause:** A global Git for Windows configuration at `C:\ProgramData\Git\config` contains an `http.sslCAInfo` entry that conflicts with GitHub Desktop's Git installation.
+  
+  **Solution:**
+  
+  1. Verify the problem by running:
+     ```
+     git config -l --show-origin
+     ```
+     Look for: `file:"C:\ProgramData/Git/config" http.sslcainfo=[some value]`
+  
+  2. Open `C:\ProgramData\Git\config` with administrator privileges
+  3. Remove these lines:
+     ```
+     [http]
+     sslCAInfo = [some value here]
+     ```
+  
+  Related issue: [#4832](https://github.com/desktop/desktop/issues/4832)
+</Accordion>
+
+<Accordion title="Authentication errors due to modified registry entries">
+  **Problem:** "Authentication failed" error when trying to sign in.
+  
+  **Cause:** Modified `Command Processor` registry entries.
+  
+  **Solution:**
+  
+  1. Open Registry Editor (regedit.exe)
+  2. Navigate to:
+     - `HKEY_CURRENT_USER\Software\Microsoft\Command Processor\`
+     - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Command Processor\`
+  3. Look for an `Autorun` value in either location
+  4. Delete the `Autorun` value if present
+  5. Restart GitHub Desktop
+  
+  Related issue: [#2623](https://github.com/desktop/desktop/issues/2623)
+</Accordion>
+
+<Accordion title="'Not enough resources' error when signing in">
+  **Problem:** "Not enough resources are available to process this command" error.
+  
+  **Cause:** Too many credentials stored in Windows Credentials Manager.
+  
+  **Solution:**
+  
+  1. Open Control Panel
+  2. Go to **Credential Manager**
+  3. Click on **Windows Credentials**
+  4. Review and delete unnecessary credentials
+  5. Try signing in again
+  
+  Related issue: [#15217](https://github.com/desktop/desktop/issues/15217)
+</Accordion>
+
+<Accordion title="Cygheap errors with Mandatory ASLR enabled">
+  **Problem:** Errors like:
+  ```
+  fatal error - cygheap base mismatch detected - 0x2E07408/0x2EC7408.
+  This problem is probably due to using incompatible versions of the cygwin DLL.
+  ```
+  
+  **Cause:** Windows 10 Fall Creators Edition (1709+) Mandatory ASLR setting affects the MSYS2 core library used by Git for Windows.
+  
+  <Warning>
+  This is an upstream limitation of MSYS2 and cannot be fixed in GitHub Desktop.
+  </Warning>
+  
+  **Solution:**
+  
+  Either:
+  - Disable Mandatory ASLR in Windows Defender Exploit Protection settings, or
+  - Add explicit exceptions for all executables under `<Git>\usr\bin`
+  
+  Related issue: [#3096](https://github.com/desktop/desktop/issues/3096)
+</Accordion>
+
+## Both Platforms
+
+<Accordion title="Repositories configured with Windows Folder Redirection don't work">
+  **Problem:** Cloning or using repositories stored on network shares via Folder Redirection fails.
+  
+  **Cause:** Git cannot resolve the working directory correctly on redirected network locations.
+  
+  <Warning>
+  Using GitHub Desktop with Folder Redirection is not supported.
+  </Warning>
+  
+  **Recommendation:** Clone repositories to a local disk instead of a network location.
+  
+  Related issue: [#2972](https://github.com/desktop/desktop/issues/2972)
+</Accordion>
+
+## Getting More Help
+
+<Info>
+If your issue isn't listed here, check the [Known Issues](/support/known-issues) page or search the [GitHub Desktop issue tracker](https://github.com/desktop/desktop/issues).
+</Info>
+
+### Still need help?
+
+1. Search [open issues](https://github.com/desktop/desktop/issues?q=is%3Aopen) and [closed issues](https://github.com/desktop/desktop/issues?q=is%3Aclosed)
+2. If you can't find a match, [open a new issue](https://github.com/desktop/desktop/issues/new/choose)
+3. Provide:
+   - GitHub Desktop version
+   - Operating system and version
+   - Steps to reproduce the issue
+   - Relevant log files
+   - Screenshots if applicable

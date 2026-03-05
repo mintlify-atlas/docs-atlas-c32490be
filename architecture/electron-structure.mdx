@@ -1,0 +1,432 @@
+---
+title: 'Electron Structure'
+description: 'Main and renderer process architecture in GitHub Desktop'
+---
+
+GitHub Desktop uses Electron's multi-process architecture to separate system-level operations from the UI rendering layer.
+
+## Process Architecture
+
+<CardGroup cols={2}>
+  <Card title="Main Process" icon="server">
+    Node.js environment managing windows, menus, and system integration
+  </Card>
+  <Card title="Renderer Process" icon="window">
+    Chromium-based browser environment running the React UI
+  </Card>
+</CardGroup>
+
+<Note>
+  The main process acts as the "backend" while renderer processes are "frontends". Communication happens via IPC (Inter-Process Communication).
+</Note>
+
+## Main Process
+
+Located in `app/src/main-process/`, the main process handles:
+
+### Entry Point: main.ts
+
+**File**: `app/src/main-process/main.ts`
+
+The main entry point initializes the application:
+
+```typescript
+import { app, Menu, BrowserWindow, session } from 'electron'
+import { AppWindow } from './app-window'
+import { buildDefaultMenu } from './menu'
+
+// Enable source maps for better debugging
+enableSourceMaps()
+
+let mainWindow: AppWindow | null = null
+const launchTime = now()
+
+// Wait for Electron to be ready
+app.on('ready', async () => {
+  // Initialize the application window
+  mainWindow = new AppWindow()
+  
+  // Set up menu
+  Menu.setApplicationMenu(buildDefaultMenu())
+  
+  // Load the renderer
+  await mainWindow.load()
+})
+```
+
+### Key Responsibilities
+
+1. **Application Lifecycle**
+   - App initialization and shutdown
+   - Single instance enforcement
+   - Update checking and installation
+
+2. **Window Management** (`app-window.ts`)
+   - Creating and managing BrowserWindow instances
+   - Window state persistence (size, position)
+   - Zoom level management
+
+3. **Menu System** (`menu/`)
+   - Application menu construction
+   - Context menus
+   - Keyboard shortcuts
+
+4. **System Integration**
+   - Shell operations
+   - File system access
+   - Notification permissions
+
+### AppWindow Class
+
+**File**: `app/src/main-process/app-window.ts`
+
+```typescript
+export class AppWindow {
+  private window: BrowserWindow
+  private emitOpen = new Subject<void>()
+  
+  public constructor() {
+    const windowState = getPersistedWindowState()
+    
+    this.window = new BrowserWindow({
+      width: windowState.width,
+      height: windowState.height,
+      x: windowState.x,
+      y: windowState.y,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+        spellcheck: true,
+      },
+    })
+    
+    this.setupWindowEvents()
+  }
+  
+  public async load() {
+    await this.window.loadFile('index.html')
+  }
+}
+```
+
+<Info>
+  The AppWindow class encapsulates all window-related logic, including state persistence, event handling, and lifecycle management.
+</Info>
+
+## Main Process Modules
+
+### IPC Communication
+
+**File**: `app/src/main-process/ipc-main.ts`
+
+Handles communication from renderer to main:
+
+```typescript
+import { ipcMain as electronIpcMain } from 'electron'
+
+// Type-safe IPC channel definitions
+export function registerIpcHandlers() {
+  electronIpcMain.handle('show-certificate-trust-dialog', async (event, cert, message) => {
+    return await dialog.showCertificateTrustDialog(cert, message)
+  })
+  
+  electronIpcMain.handle('open-external', async (event, url) => {
+    return await shell.openExternal(url)
+  })
+}
+```
+
+### Menu System
+
+**Directory**: `app/src/main-process/menu/`
+
+Dynamic menu construction based on application state:
+
+```typescript
+export function buildDefaultMenu(): Menu {
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        { label: 'New Repository...', accelerator: 'CmdOrCtrl+N' },
+        { label: 'Add Local Repository...', accelerator: 'CmdOrCtrl+O' },
+        { type: 'separator' },
+        { label: 'Clone Repository...', accelerator: 'CmdOrCtrl+Shift+O' },
+      ],
+    },
+    // ... more menu items
+  ]
+  
+  return Menu.buildFromTemplate(template)
+}
+```
+
+### Exception Handling
+
+**File**: `app/src/main-process/exception-reporting.ts`
+
+Centralized error reporting:
+
+```typescript
+export function reportError(error: Error, context?: Record<string, any>) {
+  // Log to file
+  writeLog('error', error.message, error.stack)
+  
+  // Send to error tracking service (if enabled)
+  if (shouldReportErrors()) {
+    sendErrorReport(error, context)
+  }
+}
+```
+
+### Crash Window
+
+**File**: `app/src/main-process/crash-window.ts`
+
+Displays a crash dialog when unhandled exceptions occur:
+
+```typescript
+export function showUncaughtException(isLaunchError: boolean, error: Error) {
+  const crashWindow = new BrowserWindow({
+    width: 600,
+    height: 500,
+    show: false,
+  })
+  
+  crashWindow.loadFile('crash.html')
+  crashWindow.webContents.send('error', {
+    isLaunchError,
+    message: error.message,
+    stack: error.stack,
+  })
+}
+```
+
+## Renderer Process
+
+Located in `app/src/ui/`, the renderer process runs the React application.
+
+### Entry Point: index.tsx
+
+**File**: `app/src/ui/index.tsx`
+
+```typescript
+import * as React from 'react'
+import * as ReactDOM from 'react-dom'
+import { App } from './app'
+import { Dispatcher } from './dispatcher'
+import { AppStore } from '../lib/stores'
+
+// Create stores and dispatcher
+const appStore = new AppStore()
+const dispatcher = new Dispatcher(appStore)
+
+// Render the app
+ReactDOM.render(
+  <App
+    dispatcher={dispatcher}
+    appStore={appStore}
+  />,
+  document.getElementById('root')
+)
+```
+
+### Main App Component
+
+**File**: `app/src/ui/app.tsx` (excerpt)
+
+```typescript
+export class App extends React.Component<IAppProps, IAppState> {
+  public componentDidMount() {
+    // Subscribe to store changes
+    this.props.appStore.onDidUpdate(state => {
+      this.setState(state)
+    })
+    
+    // Notify main process that we're ready
+    sendReady()
+  }
+  
+  public render() {
+    return (
+      <div id="desktop-app-chrome">
+        <TitleBar />
+        <AppMenuBar />
+        {this.renderContent()}
+      </div>
+    )
+  }
+}
+```
+
+<Note>
+  The renderer process has access to Node.js APIs because `nodeIntegration: true` is enabled. This allows direct file system access and Git operations.
+</Note>
+
+## IPC Communication Patterns
+
+### Main → Renderer (Push)
+
+**Use case**: Sending menu events to renderer
+
+```typescript
+// Main process
+window.webContents.send('menu-event', { type: 'push' })
+
+// Renderer process
+ipcRenderer.on('menu-event', (event, menuEvent) => {
+  dispatcher.handleMenuEvent(menuEvent)
+})
+```
+
+### Renderer → Main (Request/Response)
+
+**Use case**: Opening file dialogs
+
+```typescript
+// Main process
+ipcMain.handle('show-open-dialog', async (event, options) => {
+  return await dialog.showOpenDialog(options)
+})
+
+// Renderer process
+const result = await ipcRenderer.invoke('show-open-dialog', {
+  properties: ['openDirectory'],
+})
+```
+
+### Main Process Proxy
+
+**File**: `app/src/ui/main-process-proxy.ts`
+
+Provides type-safe wrapper around IPC:
+
+```typescript
+export function showOpenDialog(options: OpenDialogOptions): Promise<string[]> {
+  return ipcRenderer.invoke('show-open-dialog', options)
+}
+
+export function showCertificateTrustDialog(
+  certificate: Certificate,
+  message: string
+): Promise<boolean> {
+  return ipcRenderer.invoke('show-certificate-trust-dialog', certificate, message)
+}
+```
+
+## Web Request Filtering
+
+**File**: `app/src/main-process/ordered-webrequest.ts`
+
+Intercepts and modifies network requests:
+
+```typescript
+export class OrderedWebRequest {
+  public install(session: Session) {
+    // Authenticate GitHub image requests
+    installAuthenticatedImageFilter(session)
+    
+    // Add CORS headers for Alive service
+    installAliveOriginFilter(session)
+    
+    // Enforce same-origin policy
+    installSameOriginFilter(session)
+  }
+}
+```
+
+## Security Considerations
+
+<CardGroup cols={2}>
+  <Card title="Node Integration" icon="shield">
+    Enabled for Git operations but restricted to trusted code
+  </Card>
+  <Card title="Content Security" icon="lock">
+    Web request filtering prevents unauthorized requests
+  </Card>
+  <Card title="Certificate Pinning" icon="certificate">
+    Custom certificate trust dialog for Git over HTTPS
+  </Card>
+  <Card title="Sandboxed Markdown" icon="code">
+    User-generated content rendered in isolated context
+  </Card>
+</CardGroup>
+
+## Platform-Specific Code
+
+### macOS
+
+```typescript
+if (process.platform === 'darwin') {
+  // Set dock icon badge
+  app.dock.setBadge(notificationCount.toString())
+  
+  // Handle open-url event (custom protocol)
+  app.on('open-url', (event, url) => {
+    handleAppURL(url)
+  })
+}
+```
+
+### Windows
+
+```typescript
+if (process.platform === 'win32') {
+  // Handle Squirrel events
+  if (handleSquirrelEvent()) {
+    app.quit()
+    return
+  }
+  
+  // Register custom protocol
+  app.setAsDefaultProtocolClient('x-github-desktop-auth')
+}
+```
+
+## Debugging
+
+### Main Process
+
+```bash
+# Launch with inspector
+electron --inspect=5858 app
+```
+
+### Renderer Process
+
+```typescript
+// Open DevTools
+if (process.env.NODE_ENV === 'development') {
+  mainWindow.webContents.openDevTools()
+}
+```
+
+## Performance Monitoring
+
+**File**: `app/src/main-process/now.ts`
+
+High-resolution timing for performance metrics:
+
+```typescript
+export function now(): number {
+  return performance.now()
+}
+
+// Track startup time
+const launchTime = now()
+app.on('ready', () => {
+  const startupDuration = now() - launchTime
+  statsStore.recordTiming('startup', startupDuration)
+})
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="UI Components" href="/architecture/ui-components">
+    Learn about the React component structure
+  </Card>
+  <Card title="State Management" href="/architecture/state-management">
+    Understand how state flows through the app
+  </Card>
+</CardGroup>

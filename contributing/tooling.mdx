@@ -1,0 +1,318 @@
+---
+title: Development Tools and IDE Setup
+description: Configure your editor and development tools for GitHub Desktop
+---
+
+## Supported Editors
+
+GitHub Desktop works well with modern code editors. This guide covers setup for popular options.
+
+## Visual Studio Code
+
+### Recommended Extensions
+
+The repository includes a recommended extensions list. To install:
+
+<Steps>
+  <Step title="Open Extensions View">
+    Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (macOS) to open the Extensions view.
+  </Step>
+
+  <Step title="Show Workspace Recommendations">
+    Click the **...** menu in the Extensions view and select **Show Workspace Recommended Extensions**.
+  </Step>
+
+  <Step title="Install All Extensions">
+    Click **Install Workspace Extension Recommendations** to install all recommended extensions.
+  </Step>
+</Steps>
+
+### Essential Extensions
+
+- **[ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)** - Real-time linting errors and warnings
+- **[Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)** - Automatic code formatting
+- **[TypeScript and JavaScript Language Features](https://code.visualstudio.com/docs/languages/typescript)** - Built-in TypeScript support
+
+### Configuration
+
+Add to your VS Code settings (`.vscode/settings.json`):
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib"
+}
+```
+
+<Note>
+These settings enable automatic formatting and linting on save.
+</Note>
+
+### Debugging Configuration
+
+Create `.vscode/launch.json` for debugging:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Main Process",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "args": ["."],
+      "outputCapture": "std"
+    }
+  ]
+}
+```
+
+## Atom
+
+### Recommended Packages
+
+Install these Atom packages:
+
+```bash
+apm install atom-typescript build-npm-apm build busy-signal linter linter-ui-default intentions
+```
+
+<Note>
+Atom may prompt you to install additional dependencies. Accept these installations.
+</Note>
+
+### Key Packages
+
+- **[atom-typescript](https://atom.io/packages/atom-typescript)** - TypeScript syntax highlighting and IntelliSense
+- **[build-npm-apm](https://atom.io/packages/build-npm-apm)** - Run npm scripts with `F7`
+- **[linter](https://atom.io/packages/linter)** - Display linting errors in the editor
+
+### Running Scripts
+
+Press `F7` to see available npm scripts. Select a script to run it.
+
+## Other Editors
+
+Most modern editors support TypeScript and the tools used by GitHub Desktop:
+
+### TypeScript Support
+
+- Use the TypeScript version from the project: `node_modules/typescript/lib`
+- Enable editor integration for type checking and IntelliSense
+
+### ESLint Integration
+
+- Install the ESLint plugin for your editor
+- Configure it to use the project's `.eslintrc.yml`
+- Enable auto-fix on save if available
+
+### Prettier Integration
+
+- Install the Prettier plugin for your editor
+- Configure it to format on save
+- Ensure it respects the project's configuration
+
+## Debugging
+
+### Chrome DevTools
+
+When running in development mode, Chrome DevTools automatically open:
+
+<CodeGroup>
+```bash yarn
+yarn build:dev
+yarn start
+```
+
+```bash npm
+npm run build:dev
+npm start
+```
+</CodeGroup>
+
+DevTools provide:
+
+- **Console** - Application logs and errors
+- **Elements** - Inspect DOM and styles
+- **Network** - Monitor network requests
+- **Performance** - Profile rendering and execution
+- **React DevTools** - Inspect React components (installed automatically)
+
+### React Developer Tools
+
+[React DevTools](https://chrome.google.com/webstore/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) install automatically on first run in development mode.
+
+Use them to:
+- Inspect component hierarchy
+- View component props and state
+- Track component updates and renders
+- Profile React performance
+
+### Performance Profiling
+
+To diagnose React performance issues:
+
+1. Open DevTools with `Toggle Developer Tools` from the View menu
+2. Switch to the **Performance** tab
+3. Click **Record** and interact with the app
+4. Stop recording and analyze the timeline
+
+See [Debugging React Performance](https://building.calibreapp.com/debugging-react-performance-with-react-16-and-chrome-devtools-c90698a522ad) for detailed guidance.
+
+### Toggle Developer Tools
+
+Open DevTools manually:
+
+- **macOS**: `Cmd+Option+I`
+- **Windows/Linux**: `Ctrl+Shift+I`
+- **Menu**: View → Toggle Developer Tools
+
+## Log Files
+
+Access application logs:
+
+### From the Application
+
+1. Open GitHub Desktop
+2. Go to **Help** → **Show Logs in Finder/Explorer**
+
+### Manual Access
+
+<CodeGroup>
+```bash macOS
+cd ~/Library/Application\ Support/GitHub\ Desktop/logs/
+ls *.log
+```
+
+```bash Windows
+cd %LOCALAPPDATA%\Desktop
+dir *.desktop.production.log
+```
+
+```bash Linux
+cd ~/.config/GitHub\ Desktop/logs/
+ls *.log
+```
+</CodeGroup>
+
+## Shell Integration
+
+Set your preferred shell in Preferences/Options:
+
+1. Open **Preferences** (macOS) or **Options** (Windows)
+2. Go to **Integrations** tab
+3. Select your shell from the dropdown:
+   - macOS: Terminal, iTerm2, or custom
+   - Windows: Command Prompt, PowerShell, Git Bash, or custom
+   - Linux: Various terminal emulators
+
+This affects the **Repository → Open in Shell** menu option.
+
+## External Editor Integration
+
+Configure your preferred code editor:
+
+1. Open **Preferences/Options**
+2. Go to **Integrations** tab
+3. Select your editor from the dropdown
+
+Supported editors:
+- Visual Studio Code
+- Atom
+- Sublime Text
+- Visual Studio
+- VSCodium
+- And many others...
+
+<Note>
+If your editor isn't installed, you'll see a link to download it.
+</Note>
+
+## Theme Configuration
+
+### Appearance Settings
+
+1. Open **Preferences/Options**
+2. Go to **Appearance** tab
+3. Choose:
+   - **Light** - Light theme
+   - **Dark** - Dark theme
+   - **System** (macOS) - Follow system preference
+
+## Advanced Configuration
+
+### Environment Variables
+
+The `printenvz` package helps manage environment variables. See the package in `vendor/printenvz`.
+
+### TypeScript Configuration
+
+Multiple TypeScript configurations exist:
+
+- `tsconfig.json` - Main application config
+- `script/tsconfig.json` - Build scripts config
+- `app/src/highlighter/tsconfig.json` - Syntax highlighter config
+- `eslint-rules/tsconfig.json` - Custom ESLint rules config
+
+### Webpack Dev Middleware
+
+In development mode, webpack uses hot middleware for fast recompilation:
+
+- Changes rebuild automatically
+- Reload the app with `Ctrl/Cmd+Alt+R`
+- Check the DevTools console for build errors
+
+## Build Optimization
+
+### Bundle Analysis
+
+Analyze webpack bundle size:
+
+1. Build in production mode: `yarn build:prod`
+2. Check the webpack bundle analyzer output
+3. Optimize large dependencies
+
+The `webpack-bundle-analyzer` plugin generates an interactive visualization.
+
+### Memory Configuration
+
+For large projects, increase Node.js memory:
+
+```bash
+export NODE_OPTIONS="--max_old_space_size=4096"
+yarn build:prod
+```
+
+<Note>
+This is automatically configured in the production build script.
+</Note>
+
+## Keyboard Shortcuts
+
+See all keyboard shortcuts:
+
+- **Menu**: Help → Show Keyboard Shortcuts
+- **Web**: [Keyboard Shortcuts Documentation](https://docs.github.com/en/desktop/overview/keyboard-shortcuts)
+
+Common shortcuts:
+- `Ctrl/Cmd+Alt+R` - Reload the application
+- `Ctrl/Cmd+Shift+I` - Toggle DevTools
+- `Ctrl/Cmd+,` - Open Preferences/Options
+
+## Next Steps
+
+- Review [Building](/contributing/building) instructions
+- Learn about [Testing](/contributing/testing)
+- Check out [Linting](/contributing/linting) setup

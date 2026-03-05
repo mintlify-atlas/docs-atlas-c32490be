@@ -1,80 +1,218 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get up and running with GitHub Desktop in minutes"
 ---
 
-## Get started in three steps
+Get started with GitHub Desktop and make your first commit in just a few steps.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+- [Installed GitHub Desktop](/installation) on your computer
+- A GitHub account (sign up at [github.com](https://github.com))
+
+## Step 1: Sign In to GitHub
+
+<Steps>
+  <Step title="Launch GitHub Desktop">
+    Open GitHub Desktop from your Applications folder (macOS) or Start menu (Windows).
+  </Step>
+  
+  <Step title="Sign in with your GitHub account">
+    1. Click **Sign in to GitHub.com**
+    2. You'll be redirected to GitHub in your browser
+    3. Click **Authorize desktop** to grant access
+    4. Return to GitHub Desktop
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    <Info>
+    For GitHub Enterprise, click **Sign in to GitHub Enterprise Server** and enter your server URL.
+    </Info>
+  </Step>
+  
+  <Step title="Configure Git">
+    GitHub Desktop will automatically configure Git with your name and email from your GitHub account.
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    You can verify or change these settings in **Preferences → Git** (macOS) or **File → Options → Git** (Windows).
+  </Step>
+</Steps>
 
-### Step 2: Deploy your changes
+## Step 2: Clone a Repository
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+<Steps>
+  <Step title="Choose a repository to clone">
+    On the welcome screen, click **Clone a Repository from the Internet**.
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    Alternatively, go to **File → Clone Repository** (or `⌘⇧O` on macOS, `Ctrl+Shift+O` on Windows).
+  </Step>
+  
+  <Step title="Select your repository">
+    You'll see a list of repositories from your GitHub account:
+    
+    1. Browse the **GitHub.com** tab for your personal repositories
+    2. Search for a specific repository
+    3. Or enter a URL in the **URL** tab
+    
+    <Tip>
+    Don't have a repository yet? Create one on [GitHub](https://github.com/new) first, or click **Create a New Repository** in GitHub Desktop.
+    </Tip>
+  </Step>
+  
+  <Step title="Choose local path">
+    Select where you want to save the repository on your computer, then click **Clone**.
+    
+    <Note>
+    By default, repositories are saved to `~/Documents/GitHub` on macOS or `%USERPROFILE%\Documents\GitHub` on Windows.
+    </Note>
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Step 3: Make Changes
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Open the repository in your editor">
+    Click **Repository → Open in [Your Editor]** or press `⌘⇧A` (macOS) / `Ctrl+Shift+A` (Windows).
+    
+    This will open the repository in your configured external editor (VS Code, Atom, etc.).
+  </Step>
+  
+  <Step title="Edit a file">
+    Make a change to any file in the repository. For example:
+    
+    1. Open `README.md`
+    2. Add a new line of text
+    3. Save the file
+  </Step>
+  
+  <Step title="View changes in GitHub Desktop">
+    Switch back to GitHub Desktop. You'll see:
+    
+    - The **Changes** tab showing modified files
+    - A diff view showing what changed (green for additions, red for deletions)
+    - Checkboxes to select which changes to include
+    
+    <Info>
+    GitHub Desktop automatically detects all changes in your repository.
+    </Info>
+  </Step>
+</Steps>
 
-### Step 3: Go live
+## Step 4: Make Your First Commit
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<Steps>
+  <Step title="Stage your changes">
+    By default, all changes are selected (staged). You can:
+    
+    - Uncheck files to exclude them from the commit
+    - Check/uncheck individual lines by clicking in the diff view
+  </Step>
+  
+  <Step title="Write a commit message">
+    In the bottom-left corner:
+    
+    1. Enter a **summary** (e.g., "Update README with project description")
+    2. Optionally add a **description** for more context
+    
+    <Tip>
+    Good commit messages are clear and explain *why* you made the change, not just *what* changed.
+    </Tip>
+  </Step>
+  
+  <Step title="Create the commit">
+    Click the **Commit to main** button.
+    
+    Your changes are now saved in your local Git history!
+  </Step>
+</Steps>
 
-## Next steps
+## Step 5: Push to GitHub
 
-Now that you have your docs running, explore these key features:
+<Steps>
+  <Step title="Push your commits">
+    After committing, you'll see a notification: **Push origin**.
+    
+    Click the **Push origin** button in the top-right corner to upload your commits to GitHub.
+    
+    <Info>
+    The button shows the number of commits ready to push (e.g., "Push origin ↑1").
+    </Info>
+  </Step>
+  
+  <Step title="Verify on GitHub">
+    Open your repository on GitHub.com to verify your changes:
+    
+    1. Go to `github.com/[your-username]/[your-repo]`
+    2. You should see your commit in the commit history
+    3. Your changes are now visible to collaborators!
+  </Step>
+</Steps>
+
+## What You've Learned
+
+Congratulations! You've successfully:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Signed In" icon="check">
+    Connected GitHub Desktop to your GitHub account
+  </Card>
+  <Card title="Cloned" icon="check">
+    Downloaded a repository to your computer
+  </Card>
+  <Card title="Committed" icon="check">
+    Saved changes with a descriptive commit message
+  </Card>
+  <Card title="Pushed" icon="check">
+    Uploaded your commits to GitHub
+  </Card>
 </CardGroup>
 
+## Next Steps
+
+Now that you know the basics, explore more features:
+
+<CardGroup cols={2}>
+  <Card title="Branches" icon="code-branch" href="/features/branches">
+    Learn how to create and switch between branches
+  </Card>
+  <Card title="Pull Requests" icon="code-pull-request" href="/features/pull-requests">
+    Create pull requests directly from GitHub Desktop
+  </Card>
+  <Card title="Merge Conflicts" icon="code-merge" href="/features/merge-conflicts">
+    Resolve conflicts when collaborating with others
+  </Card>
+  <Card title="History & Diffs" icon="clock-rotate-left" href="/features/history-and-diffs">
+    View commit history and compare changes
+  </Card>
+</CardGroup>
+
+## Common Next Actions
+
+<Accordion title="How do I create a new repository?">
+  1. Go to **File → New Repository** (or `⌘N` / `Ctrl+N`)
+  2. Enter the repository name and description
+  3. Choose a local path
+  4. Click **Create Repository**
+  5. Optionally publish it to GitHub with **Publish Repository**
+</Accordion>
+
+<Accordion title="How do I switch branches?">
+  1. Click the **Current Branch** dropdown at the top
+  2. Select an existing branch or click **New Branch**
+  3. GitHub Desktop will switch to that branch
+</Accordion>
+
+<Accordion title="How do I pull changes from GitHub?">
+  Click the **Fetch origin** button regularly to check for new commits. If there are changes, click **Pull origin** to download them.
+</Accordion>
+
+<Accordion title="How do I undo a commit?">
+  1. Go to the **History** tab
+  2. Right-click on the commit you want to undo
+  3. Select **Revert Changes in Commit**
+  
+  This creates a new commit that undoes the changes.
+</Accordion>
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Need more help? Check out our [Troubleshooting Guide](/support/troubleshooting) or [FAQ](/support/faq).
 </Note>

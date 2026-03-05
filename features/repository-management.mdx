@@ -1,0 +1,302 @@
+---
+title: "Repository Management"
+description: "Learn how to clone, add, and manage Git repositories in GitHub Desktop"
+---
+
+## Overview
+
+GitHub Desktop provides multiple ways to work with repositories, whether you're cloning from GitHub, adding existing local repositories, or creating new ones from scratch.
+
+<CardGroup cols={2}>
+  <Card title="Clone Repository" icon="clone">
+    Clone repositories from GitHub, GitHub Enterprise, or any Git URL
+  </Card>
+  <Card title="Add Existing" icon="folder-plus">
+    Add repositories that already exist on your computer
+  </Card>
+  <Card title="Create New" icon="plus">
+    Initialize new Git repositories with a single click
+  </Card>
+  <Card title="Multi-Repository" icon="layer-group">
+    Manage multiple repositories and switch between them easily
+  </Card>
+</CardGroup>
+
+## Cloning Repositories
+
+### Clone from GitHub
+
+GitHub Desktop integrates directly with your GitHub account to make cloning seamless:
+
+<Steps>
+  <Step title="Access Clone Dialog">
+    Click **File** > **Clone Repository** or press `Ctrl+Shift+O` (Windows/Linux) or `Cmd+Shift+O` (macOS)
+  </Step>
+  <Step title="Select Repository">
+    Choose from repositories you have access to:
+    - Your repositories
+    - Organization repositories
+    - Repositories you've starred
+  </Step>
+  <Step title="Choose Location">
+    Select the local path where the repository will be cloned
+  </Step>
+  <Step title="Clone">
+    Click **Clone** to start the cloning process
+  </Step>
+</Steps>
+
+### Clone from URL
+
+Clone any Git repository using its URL:
+
+<Steps>
+  <Step title="Open URL Tab">
+    In the Clone Repository dialog, click the **URL** tab
+  </Step>
+  <Step title="Enter URL">
+    Paste the repository URL (supports HTTPS, SSH, and file:// protocols)
+  </Step>
+  <Step title="Set Local Path">
+    Choose where to save the repository on your computer
+  </Step>
+  <Step title="Clone">
+    Click **Clone** to begin downloading the repository
+  </Step>
+</Steps>
+
+<Info>
+GitHub Desktop automatically clones repositories recursively, including all submodules with the `--recursive` flag.
+</Info>
+
+### Clone Implementation Details
+
+GitHub Desktop's clone operation includes several advanced features:
+
+```typescript
+// From app/src/lib/git/clone.ts
+export async function clone(
+  url: string,
+  path: string,
+  options: CloneOptions,
+  progressCallback?: (progress: ICloneProgress) => void
+): Promise<void> {
+  const defaultBranch = options.defaultBranch ?? (await getDefaultBranch())
+  
+  const args = [
+    '-c',
+    `init.defaultBranch=${defaultBranch}`,
+    'clone',
+    '--recursive',  // Automatically clone submodules
+  ]
+  
+  if (options.branch) {
+    args.push('-b', options.branch)
+  }
+  
+  args.push('--', url, path)
+  await git(args, __dirname, 'clone', opts)
+}
+```
+
+**Features:**
+- **Progress Tracking**: Real-time progress updates during cloning
+- **LFS Support**: Automatically tracks Git LFS progress
+- **Default Branch**: Respects custom default branch names
+- **Branch Selection**: Clone specific branches with `-b` option
+- **Submodules**: Recursive submodule initialization
+
+## Adding Existing Repositories
+
+Add repositories that already exist on your local machine:
+
+<Steps>
+  <Step title="Open Add Dialog">
+    Click **File** > **Add Local Repository**
+  </Step>
+  <Step title="Browse to Repository">
+    Click **Choose...** and navigate to the repository folder
+  </Step>
+  <Step title="Verify Git Repository">
+    GitHub Desktop verifies the folder contains a valid `.git` directory
+  </Step>
+  <Step title="Add Repository">
+    Click **Add Repository** to add it to your repository list
+  </Step>
+</Steps>
+
+<Warning>
+The folder must contain a `.git` directory to be recognized as a Git repository. If it doesn't, GitHub Desktop will offer to initialize it as a new repository.
+</Warning>
+
+## Creating New Repositories
+
+Initialize a new Git repository from scratch:
+
+<Steps>
+  <Step title="Open Create Dialog">
+    Click **File** > **New Repository** or press `Ctrl+N` (Windows/Linux) or `Cmd+N` (macOS)
+  </Step>
+  <Step title="Configure Repository">
+    - **Name**: Enter the repository name
+    - **Description**: Add an optional description
+    - **Local Path**: Choose where to create the repository
+    - **Git Ignore**: Select a template for `.gitignore`
+    - **License**: Choose an open-source license (optional)
+  </Step>
+  <Step title="Initialize">
+    Click **Create Repository** to initialize the Git repository
+  </Step>
+  <Step title="Publish (Optional)">
+    Optionally publish the repository to GitHub immediately
+  </Step>
+</Steps>
+
+## Managing Multiple Repositories
+
+### Switching Between Repositories
+
+GitHub Desktop makes it easy to work with multiple repositories:
+
+- Click the **Current Repository** dropdown in the toolbar
+- Search or browse your repository list
+- Click a repository to switch to it
+- Use `Ctrl+T` (Windows/Linux) or `Cmd+T` (macOS) for quick switching
+
+### Repository List Organization
+
+Repositories are organized by:
+- **Recent**: Most recently accessed repositories appear first
+- **Groups**: Repositories can be grouped (GitHub.com, Enterprise, etc.)
+- **Search**: Filter repositories by name instantly
+
+### Removing Repositories
+
+Remove a repository from GitHub Desktop:
+
+<Steps>
+  <Step title="Right-Click Repository">
+    Right-click the repository in the repository list
+  </Step>
+  <Step title="Select Remove">
+    Click **Remove** from the context menu
+  </Step>
+  <Step title="Confirm">
+    Choose whether to remove from the list only or delete from disk
+  </Step>
+</Steps>
+
+<Warning>
+Removing a repository from GitHub Desktop only removes it from the app's repository list. To delete the repository files from your computer, you must explicitly choose the "Delete repository from disk" option.
+</Warning>
+
+## Repository State
+
+GitHub Desktop maintains state for each repository:
+
+- **Working Directory Status**: Tracks file changes
+- **Branch Information**: Current branch and upstream tracking
+- **Commit History**: Local and remote commit history
+- **Remote Configuration**: Remote URLs and fetch settings
+- **Stash Entries**: Saved work-in-progress changes
+
+## Opening in External Applications
+
+### Open in File Manager
+
+- **Windows**: Right-click repository > **Show in Explorer**
+- **macOS**: Right-click repository > **Show in Finder**
+- **Linux**: Right-click repository > **Show in File Manager**
+
+### Open in External Editor
+
+Configure your preferred editor in **Preferences** > **Integrations**, then:
+
+- Click **Repository** > **Open in [Editor]**
+- Or press `Ctrl+Shift+A` (Windows/Linux) or `Cmd+Shift+A` (macOS)
+
+### Open in Terminal
+
+Open a terminal/command prompt in the repository directory:
+
+- Click **Repository** > **Open in Terminal**
+- Or press `Ctrl+`` (Windows/Linux) or `Cmd+`` (macOS)
+
+## Repository Settings
+
+Access repository-specific settings:
+
+<Accordion title="Remote Settings">
+  Configure remote URLs and fetch behavior:
+  - Primary remote URL
+  - Fork remotes for pull requests
+  - Fetch interval settings
+</Accordion>
+
+<Accordion title="Git Config">
+  Repository-specific Git configuration:
+  - User name and email for commits
+  - Line ending preferences
+  - Git LFS settings
+</Accordion>
+
+<Accordion title="Ignored Files">
+  Manage `.gitignore` patterns:
+  - Edit `.gitignore` file
+  - Add patterns to exclude files
+  - View ignored files
+</Accordion>
+
+## Best Practices
+
+<Tip>
+**Keep repositories organized**: Use meaningful repository names and descriptions to make switching between projects easier.
+</Tip>
+
+1. **Clone to Consistent Location**: Keep all repositories in a dedicated folder (e.g., `~/Projects` or `C:\Users\[Name]\Projects`)
+2. **Use Descriptive Names**: Choose clear, descriptive names when creating repositories
+3. **Regular Cleanup**: Remove repositories you're no longer using from the list
+4. **Backup Important Work**: Ensure repositories are pushed to a remote backup regularly
+5. **Check Disk Space**: Monitor disk space when cloning large repositories
+
+## Troubleshooting
+
+### Clone Failures
+
+<AccordionGroup>
+  <Accordion title="Authentication Failed">
+    If cloning fails due to authentication:
+    - Verify your GitHub account is connected in **File** > **Options** > **Accounts**
+    - Check if you have access to the repository
+    - For private repos, ensure your token has the correct permissions
+  </Accordion>
+  
+  <Accordion title="Network Errors">
+    If cloning fails due to network issues:
+    - Check your internet connection
+    - Verify any proxy settings in **File** > **Options** > **Advanced**
+    - Try cloning via HTTPS instead of SSH, or vice versa
+  </Accordion>
+  
+  <Accordion title="Path Too Long (Windows)">
+    If you encounter "path too long" errors:
+    - Clone to a shorter path (e.g., `C:\Git\repo-name`)
+    - Enable long paths in Windows: `git config --system core.longpaths true`
+  </Accordion>
+</AccordionGroup>
+
+### Repository Not Detected
+
+If a folder isn't recognized as a Git repository:
+
+1. Verify the `.git` folder exists in the root directory
+2. Check that the `.git` folder wasn't corrupted
+3. Try running `git status` in the terminal to verify Git can access it
+4. Consider re-cloning if the repository is corrupted
+
+## Related Topics
+
+- [Committing Changes](/features/committing-changes)
+- [Branches](/features/branches)
+- [Authentication](/configuration/authentication)
+- [Git Configuration](/configuration/git-config)

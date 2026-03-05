@@ -1,0 +1,521 @@
+---
+title: "History and Diffs"
+description: "Learn how to view commit history, compare changes, and understand diffs in GitHub Desktop"
+---
+
+## Overview
+
+GitHub Desktop provides powerful tools to view your repository's commit history, compare changes between commits, and understand exactly what changed in your code over time.
+
+<CardGroup cols={2}>
+  <Card title="Commit History" icon="clock-rotate-left">
+    View complete commit history with branch visualization
+  </Card>
+  <Card title="Diff Viewer" icon="code-compare">
+    See line-by-line changes with syntax highlighting
+  </Card>
+  <Card title="File History" icon="file-lines">
+    Track changes to individual files over time
+  </Card>
+  <Card title="Blame View" icon="magnifying-glass">
+    Identify who changed each line and when
+  </Card>
+</CardGroup>
+
+## Viewing Commit History
+
+### History Tab
+
+Switch to the **History** tab to see your repository's commits:
+
+**What You See:**
+- Chronological list of commits (newest first)
+- Commit messages and descriptions
+- Author names and avatars
+- Commit timestamps
+- Branch indicators
+- Tag markers
+
+**Visual Elements:**
+- **Branch lines**: Visual representation of branch structure
+- **Merge commits**: Diamond icon indicates merge points
+- **Current branch**: Highlighted with branch badge
+- **HEAD pointer**: Shows current checkout position
+
+### Commit List Organization
+
+Commits are organized by:
+
+<Accordion title="Chronological Order">
+  Newest commits appear at the top:
+  - Easy to see recent changes
+  - Scroll down for older history
+  - Infinite scroll loads more commits
+</Accordion>
+
+<Accordion title="Branch Filtering">
+  Filter commits by branch:
+  - Click **Current Branch** dropdown
+  - Select a branch to view its history
+  - See commits unique to that branch
+</Accordion>
+
+<Accordion title="Author Filtering">
+  Filter by commit author:
+  - Click the filter icon
+  - Select specific authors
+  - View only their commits
+</Accordion>
+
+### Commit Details
+
+Click any commit to see:
+
+**Commit Information:**
+- Full commit message
+- Commit SHA (full hash)
+- Author and committer
+- Commit date and time
+- Parent commit(s)
+- Tags and branches at this commit
+
+**Changed Files:**
+- List of all modified files
+- Add/delete line counts
+- File status indicators (added, modified, deleted, renamed)
+
+**Diff View:**
+- Line-by-line changes for each file
+- Syntax highlighting
+- Expand/collapse unchanged sections
+
+## Understanding Diffs
+
+### Diff Display Modes
+
+<Tabs>
+  <Tab title="Unified Diff">
+    Shows changes in a single pane:
+    ```diff
+    function greet(name) {
+    - return "Hello " + name;
+    + return `Hello, ${name}!`;
+    }
+    ```
+    
+    - **Green lines** with `+`: Added
+    - **Red lines** with `-`: Removed
+    - **White lines**: Unchanged (context)
+  </Tab>
+  
+  <Tab title="Split Diff">
+    Shows before and after side-by-side:
+    - Left side: Original version
+    - Right side: New version
+    - Better for large changes
+    - Easier to compare versions
+  </Tab>
+</Tabs>
+
+### Diff Syntax Highlighting
+
+GitHub Desktop provides syntax highlighting for:
+
+- JavaScript/TypeScript
+- Python
+- Ruby
+- Java
+- C/C++/C#
+- Go
+- Rust
+- PHP
+- HTML/CSS
+- Markdown
+- JSON/YAML
+- And many more
+
+### Reading Diffs
+
+**Line Numbers:**
+- Left number: Line in old file
+- Right number: Line in new file
+- `@@` markers show line ranges
+
+**Change Indicators:**
+```diff
+@@ -10,7 +10,8 @@ function example() {
+```
+- `-10,7`: Starting at line 10, 7 lines in old file
+- `+10,8`: Starting at line 10, 8 lines in new file
+
+**Context Lines:**
+- Unchanged lines shown for context
+- Click to expand more context
+- Configurable amount of context
+
+## Comparing Commits
+
+### Compare Any Two Commits
+
+<Steps>
+  <Step title="Select First Commit">
+    In History tab, right-click a commit
+  </Step>
+  <Step title="Select Compare">
+    Choose **Compare to...** from the menu
+  </Step>
+  <Step title="Select Second Commit">
+    Click the commit to compare with
+  </Step>
+  <Step title="View Differences">
+    See all changes between the two commits
+  </Step>
+</Steps>
+
+### Compare Branches
+
+<Steps>
+  <Step title="Open Branch Menu">
+    Click **Branch** > **Compare to Branch**
+  </Step>
+  <Step title="Select Branch">
+    Choose the branch to compare with
+  </Step>
+  <Step title="Review Differences">
+    See:
+    - Commits that differ
+    - All file changes
+    - Complete diff view
+  </Step>
+</Steps>
+
+## File History
+
+### View Changes to a Specific File
+
+<Steps>
+  <Step title="Locate File">
+    In the file tree or Changes list
+  </Step>
+  <Step title="Right-Click File">
+    Right-click the file you want to track
+  </Step>
+  <Step title="View History">
+    Select **View file history**
+  </Step>
+  <Step title="Browse Commits">
+    See all commits that modified this file
+  </Step>
+</Steps>
+
+### File History Shows:
+
+- Every commit that touched the file
+- What changed in each commit
+- Who made each change
+- When changes were made
+- File renames and moves
+
+## Diff Statistics
+
+### Summary Information
+
+Each commit shows statistics:
+
+**File-Level Stats:**
+- Number of files changed
+- Files added (green +)
+- Files deleted (red -)
+- Files modified (yellow ~)
+- Files renamed (blue →)
+
+**Line-Level Stats:**
+```
++142 -37
+```
+- Green number: Lines added
+- Red number: Lines deleted
+- Net change: +105 lines
+
+### Large Diff Handling
+
+For commits with many changes:
+
+- Files grouped by status
+- Collapsible sections
+- Search within changes
+- "Load more" for large diffs
+
+<Info>
+GitHub Desktop optimizes large diffs by progressively loading content and collapsing unchanged sections.
+</Info>
+
+## Reverting Commits
+
+### Undo a Commit
+
+<Steps>
+  <Step title="Find Commit">
+    In History tab, locate the commit to revert
+  </Step>
+  <Step title="Right-Click Commit">
+    Right-click the commit
+  </Step>
+  <Step title="Revert">
+    Select **Revert changes in commit**
+  </Step>
+  <Step title="New Revert Commit">
+    GitHub Desktop creates a new commit that undoes the changes
+  </Step>
+</Steps>
+
+**How Reverting Works:**
+```bash
+git revert <commit-sha>
+```
+- Creates a new commit
+- Applies inverse of the original changes
+- Preserves history (doesn't delete the original commit)
+- Safe for shared branches
+
+<Warning>
+Reverting creates a new commit. It doesn't delete the original commit from history.
+</Warning>
+
+## Cherry-Picking from History
+
+Apply changes from one commit to your current branch:
+
+<Steps>
+  <Step title="Find Commit">
+    In History tab, locate the commit with changes you want
+  </Step>
+  <Step title="Cherry-Pick">
+    Right-click the commit and select **Cherry-pick commit**
+  </Step>
+  <Step title="Resolve Conflicts">
+    If conflicts occur, resolve them
+  </Step>
+  <Step title="Complete">
+    The changes are applied to your current branch
+  </Step>
+</Steps>
+
+See [Cherry-Picking](/workflows/cherry-picking) for detailed information.
+
+## Searching History
+
+### Search Commits
+
+**Search Options:**
+- **Commit message**: Find commits by message text
+- **Author**: Filter commits by author
+- **Date range**: View commits in a specific timeframe
+- **File path**: Find commits affecting a specific file
+
+### Advanced Filtering
+
+Combine filters:
+```
+Author: john@example.com
+Date: Last 7 days  
+Message: "fix"
+```
+
+## Viewing Tags
+
+### Tag Indicators
+
+In the History tab:
+- Tags appear as labels on commits
+- Shows semantic version numbers (v1.0.0)
+- Click tag to see tag message
+- See all commits since a tag
+
+### Creating Tags from History
+
+<Steps>
+  <Step title="Select Commit">
+    Right-click the commit to tag
+  </Step>
+  <Step title="Create Tag">
+    Select **Create tag**
+  </Step>
+  <Step title="Name Tag">
+    Enter tag name (e.g., `v1.2.0`)
+  </Step>
+  <Step title="Add Message">
+    Optionally add a tag message
+  </Step>
+  <Step title="Create">
+    Click **Create tag**
+  </Step>
+</Steps>
+
+## Blame/Annotations
+
+See who last modified each line:
+
+<Steps>
+  <Step title="Open File">
+    Click a file in Changes or History
+  </Step>
+  <Step title="View Blame">
+    Right-click in the diff view and select **View blame**
+  </Step>
+  <Step title="See Line Authors">
+    Each line shows:
+    - Author name
+    - Commit SHA
+    - Commit date
+    - Commit message
+  </Step>
+</Steps>
+
+## Graph Visualization
+
+The History tab shows a visual graph:
+
+**Graph Elements:**
+- **Vertical lines**: Branch history
+- **Horizontal lines**: Merge connections
+- **Dots**: Individual commits
+- **Diamonds**: Merge commits
+- **Colors**: Different branches
+
+**Reading the Graph:**
+```
+  * commit on feature branch
+  |  
+  | * commit on main
+  |/  
+  * merge commit
+  |
+```
+
+## Exporting History
+
+### Copy Commit SHA
+
+Right-click any commit and select **Copy SHA**:
+- Full SHA: `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0`
+- Short SHA: `a1b2c3d` (first 7 characters)
+
+### Export Commit Message
+
+Copy commit details:
+- Right-click commit
+- Select **Copy commit message**
+- Paste into documentation or issues
+
+## Diff Navigation
+
+### Keyboard Shortcuts
+
+| Action | Windows/Linux | macOS |
+|--------|--------------|-------|
+| Next file | `Down` | `Down` |
+| Previous file | `Up` | `Up` |
+| Next change | `Ctrl+Down` | `Cmd+Down` |
+| Previous change | `Ctrl+Up` | `Cmd+Up` |
+| Toggle split view | `Ctrl+\` | `Cmd+\` |
+
+### Quick Navigation
+
+- Click file names to jump to that file's diff
+- Use file tree for large commits
+- Collapse/expand sections to focus
+
+## Binary File Diffs
+
+For images and binary files:
+
+### Image Diffs
+
+- **Side-by-side view**: See before and after images
+- **Swipe view**: Drag to reveal changes
+- **Onion skin**: Overlay old and new versions
+- **Difference**: Highlight changed pixels
+
+### Other Binary Files
+
+For non-image binaries:
+- Shows file size change
+- Indicates file was modified
+- Cannot show line-by-line diff
+- May show preview if supported
+
+## Performance Considerations
+
+### Large Repositories
+
+For repositories with extensive history:
+
+- **Pagination**: Commits load in batches
+- **Lazy loading**: Diffs load on demand
+- **Caching**: Recently viewed commits cached
+- **Filtering**: Use filters to reduce loaded commits
+
+### Large Diffs
+
+For commits with many changes:
+
+- Syntax highlighting may be disabled
+- Files load progressively
+- Context limited to reduce memory
+- Consider viewing on GitHub.com for huge diffs
+
+## Best Practices
+
+<Tip>
+**Use history to understand changes**: Before modifying code, check its history to understand why it was written that way.
+</Tip>
+
+1. **Review Before Pushing**: Check your commits in History before pushing
+2. **Use Descriptive Messages**: Write clear commit messages for future reference
+3. **Regular Commits**: Commit frequently to create useful history
+4. **Check File History**: Before major refactoring, review file history
+5. **Use Blame Wisely**: Find context, not blame—history shows the "why"
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="History Not Showing">
+    If history appears empty:
+    - Verify you're on the correct branch
+    - Check if repository has any commits
+    - Try refreshing: **Repository** > **Fetch origin**
+    - Ensure repository is properly initialized
+  </Accordion>
+  
+  <Accordion title="Diff Not Displaying">
+    If diffs won't load:
+    - Large files may timeout—view in editor instead
+    - Binary files show limited information
+    - Check if file was renamed (may need to follow renames)
+    - Try viewing the commit on GitHub
+  </Accordion>
+  
+  <Accordion title="Missing Commits">
+    If commits are missing:
+    - Check branch filter—may be on wrong branch
+    - Commits may be on a different remote
+    - Fetch latest changes from remote
+    - Check if commits were force-pushed over
+  </Accordion>
+  
+  <Accordion title="Slow Performance">
+    If History is slow:
+    - Repository may have very large history
+    - Disable file tree for faster loading
+    - Use filters to reduce commits shown
+    - Consider shallow clone for huge repos
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+- [Committing Changes](/features/committing-changes)
+- [Branches](/features/branches)
+- [Cherry-Picking](/workflows/cherry-picking)
+- [Reverting](/workflows/reverting)

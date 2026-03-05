@@ -1,0 +1,587 @@
+---
+title: "Stashing"
+description: "Learn how to temporarily save and restore work-in-progress changes using stash in GitHub Desktop"
+---
+
+## Overview
+
+Stashing allows you to temporarily save uncommitted changes without creating a commit. This is useful when you need to switch branches, pull updates, or temporarily set aside work.
+
+<CardGroup cols={2}>
+  <Card title="Save Progress" icon="floppy-disk">
+    Temporarily save uncommitted changes
+  </Card>
+  <Card title="Clean Working Directory" icon="broom">
+    Switch branches without committing
+  </Card>
+  <Card title="Branch-Specific" icon="code-branch">
+    Stashes are tagged with the branch they came from
+  </Card>
+  <Card title="Auto-Cleanup" icon="trash">
+    Desktop automatically manages and cleans up stashes
+  </Card>
+</CardGroup>
+
+## Understanding Stash
+
+### What is a Stash?
+
+A stash is a temporary save of:
+- Modified tracked files
+- Staged changes
+- Untracked files (when explicitly included)
+
+Stashes are stored in a stack (LIFO - Last In, First Out):
+```
+stash@{0}  <- Most recent
+stash@{1}
+stash@{2}  <- Oldest
+```
+
+### When to Use Stash
+
+**Good Use Cases:**
+
+<CardGroup cols={2}>
+  <Card title="Switch Branches" icon="arrows-turn-to-dots">
+    Temporarily save work to switch to another branch
+  </Card>
+  <Card title="Pull Changes" icon="download">
+    Clear working directory before pulling
+  </Card>
+  <Card title="Experiment" icon="flask">
+    Try something without committing current work
+  </Card>
+  <Card title="Interrupt Work" icon="pause">
+    Save progress when switching contexts
+  </Card>
+</CardGroup>
+
+## Stashing in GitHub Desktop
+
+### Automatic Stashing
+
+GitHub Desktop automatically stashes changes when:
+
+<Steps>
+  <Step title="Switch Branches with Changes">
+    Try to switch branches while you have uncommitted changes
+  </Step>
+  <Step title="Stash Dialog Appears">
+    GitHub Desktop asks what to do:
+    - **Bring my changes**: Move changes to new branch (if possible)
+    - **Stash changes**: Save changes and switch
+    - **Cancel**: Stay on current branch
+  </Step>
+  <Step title="Choose Stash">
+    If you select "Stash changes", Desktop:
+    - Creates a stash with branch name
+    - Switches to the target branch
+    - Saves stash for later restoration
+  </Step>
+</Steps>
+
+### Manual Stashing
+
+Create a stash manually:
+
+<Steps>
+  <Step title="Have Uncommitted Changes">
+    Make some changes but don't commit them
+  </Step>
+  <Step title="Open Stash Options">
+    Click **Repository** > **Stash all changes**
+  </Step>
+  <Step title="Confirm">
+    Changes are saved to stash and working directory is cleaned
+  </Step>
+</Steps>
+
+## Stash Implementation
+
+From the source code:
+
+### Desktop's Stash Marker
+
+```typescript
+// From app/src/lib/git/stash.ts
+export const DesktopStashEntryMarker = '!!GitHub_Desktop'
+
+// Pattern to identify Desktop-created stashes
+const desktopStashEntryMessageRe = /!!GitHub_Desktop<(.+)>$/
+
+// Stash message format
+export function createDesktopStashMessage(branchName: string) {
+  return `${DesktopStashEntryMarker}<${branchName}>`
+}
+```
+
+GitHub Desktop tags stashes with `!!GitHub_Desktop<branch-name>` to:
+- Identify which stashes it created
+- Associate stashes with specific branches
+- Enable automatic cleanup
+- Differentiate from manually created stashes
+
+<Info>
+Stashes created outside GitHub Desktop (via command line) are not affected by Desktop's automatic management.
+</Info>
+
+### Creating a Stash
+
+```typescript
+export async function createDesktopStashEntry(
+  repository: Repository,
+  branch: Branch | string,
+  untrackedFilesToStage: ReadonlyArray<WorkingDirectoryFileChange>
+): Promise<boolean> {
+  // Stage untracked files first
+  const fullySelectedUntrackedFiles = untrackedFilesToStage.map(x =>
+    x.withIncludeAll(true)
+  )
+  await stageFiles(repository, fullySelectedUntrackedFiles)
+  
+  const branchName = typeof branch === 'string' ? branch : branch.name
+  const message = createDesktopStashMessage(branchName)
+  const args = ['stash', 'push', '-m', message]
+  
+  const result = await git(args, repository.path, 'createStashEntry')
+  
+  // Git returns this when there's nothing to stash
+  if (result.stdout === 'No local changes to save\n') {
+    return false
+  }
+  
+  return true
+}
+```
+
+**Key Features:**
+- Includes untracked files if specified
+- Tagged with branch name
+- Returns `false` if nothing to stash
+- Uses `stash push` with message
+
+### Listing Stashes
+
+```typescript
+export async function getStashes(repository: Repository): Promise<StashResult> {
+  const { formatArgs, parse } = createLogParser({
+    name: '%gD',          // Stash name (stash@{0})
+    stashSha: '%H',       // Commit SHA
+    message: '%gs',       // Stash message  
+    tree: '%T',           // Tree SHA
+    parents: '%P',        // Parent commits
+  })
+  
+  const result = await git(
+    ['log', '-g', ...formatArgs, 'refs/stash', '--'],
+    repository.path,
+    'getStashEntries'
+  )
+  
+  const desktopEntries: Array<IStashEntry> = []
+  const entries = parse(result.stdout)
+  
+  // Filter for Desktop-created stashes
+  for (const { name, message, stashSha, tree, parents } of entries) {
+    const branchName = extractBranchFromMessage(message)
+    
+    if (branchName !== null) {
+      desktopEntries.push({
+        name,
+        stashSha,
+        branchName,
+        tree,
+        parents: parents.split(' '),
+        files: { kind: StashedChangesLoadStates.NotLoaded },
+      })
+    }
+  }
+  
+  return { 
+    desktopEntries, 
+    stashEntryCount: entries.length 
+  }
+}
+```
+
+## Restoring Stashes
+
+### Automatic Restoration
+
+When switching back to a branch:
+
+<Steps>
+  <Step title="Switch to Branch">
+    Change to a branch that has a stash
+  </Step>
+  <Step title="Stash Notification">
+    GitHub Desktop notifies you if a stash exists for this branch
+  </Step>
+  <Step title="Restore Option">
+    Click **Restore stash** to apply the changes
+  </Step>
+  <Step title="Stash Applied">
+    Changes are restored to your working directory
+  </Step>
+</Steps>
+
+### Manual Restoration
+
+Restore a specific stash:
+
+<Steps>
+  <Step title="View Stashes">
+    Click **Repository** > **View stashes**
+  </Step>
+  <Step title="Select Stash">
+    Choose the stash you want to restore
+  </Step>
+  <Step title="Pop Stash">
+    Click **Restore and delete** to pop the stash
+  </Step>
+</Steps>
+
+### Pop vs. Apply
+
+GitHub Desktop uses **pop** by default:
+
+```typescript
+export async function popStashEntry(
+  repository: Repository,
+  stashSha: string
+): Promise<void> {
+  const expectedErrors = new Set<DugiteError>([DugiteError.MergeConflicts])
+  const stashToPop = await getStashEntryMatchingSha(repository, stashSha)
+  
+  if (stashToPop !== null) {
+    const args = ['stash', 'pop', '--quiet', `${stashToPop.name}`]
+    
+    await git(args, repository.path, 'popStashEntry', {
+      expectedErrors,
+    }).catch(e => {
+      // If pop succeeds but exits with 1 (conflicts with no stderr),
+      // manually drop the stash
+      if (e instanceof GitError && 
+          e.result.exitCode === 1 && 
+          e.result.stderr.length === 0) {
+        return dropDesktopStashEntry(repository, stashSha)
+      }
+      return Promise.reject(e)
+    })
+  }
+}
+```
+
+**Pop:**
+- Applies stash changes
+- Removes stash from the stack
+- Default in GitHub Desktop
+
+**Apply** (via command line):
+- Applies stash changes
+- Keeps stash in the stack
+- Allows applying to multiple branches
+
+## Stash Conflicts
+
+When restoring a stash causes conflicts:
+
+<Steps>
+  <Step title="Conflict Detection">
+    GitHub Desktop shows conflicted files
+  </Step>
+  <Step title="Resolve Conflicts">
+    Fix conflicts like any merge:
+    - Open in editor
+    - Choose "ours" or "theirs"
+    - Manually edit conflict markers
+  </Step>
+  <Step title="Stage Resolutions">
+    Resolved files are automatically staged
+  </Step>
+  <Step title="Stash Removed">
+    After successful pop, stash is deleted even with conflicts
+  </Step>
+</Steps>
+
+<Info>
+Unlike merge/rebase, there's no "continue" after stash conflicts. The stash is already applied (or deleted), you just need to resolve and commit.
+</Info>
+
+## Dropping Stashes
+
+### Delete Specific Stash
+
+<Steps>
+  <Step title="View Stashes">
+    Open the stash list
+  </Step>
+  <Step title="Select Stash">
+    Find the stash you want to delete
+  </Step>
+  <Step title="Delete">
+    Right-click and select **Delete stash**
+  </Step>
+  <Step title="Confirm">
+    Confirm the deletion
+  </Step>
+</Steps>
+
+```typescript
+export async function dropDesktopStashEntry(
+  repository: Repository,
+  stashSha: string
+) {
+  const entryToDelete = await getStashEntryMatchingSha(repository, stashSha)
+  
+  if (entryToDelete !== null) {
+    const args = ['stash', 'drop', entryToDelete.name]
+    await git(args, repository.path, 'dropStashEntry')
+  }
+}
+```
+
+### Automatic Cleanup
+
+GitHub Desktop automatically cleans up stashes that are no longer needed (implementation details not in current source, but stashes are managed automatically).
+
+## Moving Stashes Between Branches
+
+GitHub Desktop can reassign a stash to a different branch:
+
+```typescript
+export async function moveStashEntry(
+  repository: Repository,
+  { stashSha, parents, tree }: IStashEntry,
+  branchName: string
+) {
+  const message = `On ${branchName}: ${createDesktopStashMessage(branchName)}`
+  const parentArgs = parents.flatMap(p => ['-p', p])
+  
+  // Create new commit with updated message
+  const { stdout: commitId } = await git(
+    ['commit-tree', ...parentArgs, '-m', message, '--no-gpg-sign', tree],
+    repository.path,
+    'moveStashEntryToBranch'
+  )
+  
+  // Store the new stash
+  await git(
+    ['stash', 'store', '-m', message, commitId.trim()],
+    repository.path,
+    'moveStashEntryToBranch'
+  )
+  
+  // Delete the old stash
+  await dropDesktopStashEntry(repository, stashSha)
+}
+```
+
+This allows Desktop to:
+- Move stash when you rename a branch
+- Reassign stash if branch is deleted
+- Keep stash associations accurate
+
+## Viewing Stash Contents
+
+See what changes are in a stash:
+
+```typescript
+export async function getStashedFiles(
+  repository: Repository,
+  stashSha: string
+): Promise<ReadonlyArray<CommittedFileChange>> {
+  const args = [
+    'stash',
+    'show',
+    stashSha,
+    '--raw',
+    '--numstat',
+    '-z',
+    '--format=format:',
+    '--no-show-signature',
+    '--',
+  ]
+  
+  const { stdout } = await git(args, repository.path, 'getStashedFiles')
+  
+  return parseRawLogWithNumstat(stdout, stashSha, `${stashSha}^`).files
+}
+```
+
+Shows:
+- Files that were modified
+- Added/deleted line counts
+- File status (added, modified, deleted)
+
+## Stash Best Practices
+
+<Tip>
+**Stash before pulling**: If you have uncommitted changes and need to pull, stash first to avoid conflicts.
+</Tip>
+
+1. **Don't Stash Too Long**
+   - Stashes are temporary storage
+   - Apply or commit within a day or two
+   - Old stashes can cause conflicts
+
+2. **One Stash Per Branch**
+   - Avoid multiple stashes on same branch
+   - Leads to confusion about which to apply
+   - Commit instead if work is substantial
+
+3. **Descriptive Stash Messages**
+   - When creating via CLI, use: `git stash push -m "description"`
+   - Helps identify stash contents later
+   - Desktop auto-tags with branch name
+
+4. **Commit Instead When Appropriate**
+   - If work is meaningful, commit it
+   - Stash is for very temporary saves
+   - Commits are safer and more permanent
+
+5. **Test After Popping**
+   - Stashed code might not work in updated codebase
+   - Always test after restoring a stash
+   - Resolve conflicts carefully
+
+## Common Stash Scenarios
+
+### Switch Branches Mid-Work
+
+```
+Scenario: Working on feature, need to quickly fix bug
+
+1. Have uncommitted changes on feature-branch
+2. Try to switch to main
+3. Desktop prompts to stash
+4. Select "Stash changes"
+5. Fix bug on main, commit, push
+6. Switch back to feature-branch
+7. Desktop prompts to restore stash
+8. Continue working
+```
+
+### Pull with Uncommitted Changes
+
+```
+Scenario: Need to pull but have local changes
+
+1. Stash current changes
+2. Pull latest changes from remote
+3. Restore stash
+4. Resolve any conflicts
+5. Continue working
+```
+
+### Save Work Before Experimenting
+
+```
+Scenario: Want to try something without committing
+
+1. Stash current work
+2. Experiment with changes
+3. If experiment works: commit it
+4. If experiment fails: discard and restore stash
+```
+
+## Stash vs. Alternatives
+
+### Stash vs. Commit
+
+**Use Stash:**
+- Changes are incomplete
+- Need to switch contexts quickly
+- Work is experimental
+- Very short-term save (minutes to hours)
+
+**Use Commit:**
+- Changes are a logical unit
+- Work should be saved permanently
+- Creating checkpoints
+- Longer-term save (hours to days)
+
+### Stash vs. WIP Commit
+
+**Use Stash:**
+- Truly temporary
+- Don't want commit in history
+- Very quick context switch
+
+**Use WIP Commit:**
+- Want to push work to remote
+- Need to switch computers
+- Want to track with Git
+- Can amend later
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Stash Not Appearing">
+    If a stash doesn't show up:
+    - It may have been created via CLI without Desktop's marker
+    - Check all stashes with: `git stash list`
+    - Desktop only shows stashes with `!!GitHub_Desktop` marker
+    - CLI-created stashes need to be managed via CLI
+  </Accordion>
+  
+  <Accordion title="Cannot Apply Stash">
+    If stash won't apply:
+    - **Conflicts**: Files have changed significantly since stash
+    - **Deleted files**: Files in stash no longer exist
+    - **Uncommitted changes**: Clear working directory first
+    - Try applying manually: `git stash pop stash@{0}`
+  </Accordion>
+  
+  <Accordion title="Stash Applied to Wrong Branch">
+    If you accidentally applied a stash to the wrong branch:
+    - Undo with: `git reset --hard HEAD` (loses changes!)
+    - Or commit the changes and cherry-pick to correct branch
+    - Better: always check current branch before popping
+  </Accordion>
+  
+  <Accordion title="Lost Stash After Conflict">
+    If stash disappeared after conflicts:
+    - Stash is still applied, just deleted from stack
+    - Changes are in your working directory
+    - Resolve conflicts and commit
+    - Cannot re-stash the exact same entry
+  </Accordion>
+  
+  <Accordion title="Too Many Stashes">
+    If you have many stashes:
+    - Review with `git stash list`
+    - Drop old ones: `git stash drop stash@{n}`
+    - Or clear all: `git stash clear` (careful!)
+    - Commit or drop - don't accumulate stashes
+  </Accordion>
+</AccordionGroup>
+
+## Command Line Equivalents
+
+For reference, Desktop's stash operations map to:
+
+```bash
+# Create stash
+git stash push -m "!!GitHub_Desktop<branch-name>"
+
+# List Desktop stashes
+git log -g --grep="!!GitHub_Desktop" refs/stash
+
+# Pop stash  
+git stash pop stash@{0}
+
+# Drop stash
+git stash drop stash@{0}
+
+# View stash contents
+git stash show -p stash@{0}
+```
+
+## Related Topics
+
+- [Branches](/features/branches)
+- [Committing Changes](/features/committing-changes)
+- [Merge Conflicts](/features/merge-conflicts)
+- [Repository Management](/features/repository-management)

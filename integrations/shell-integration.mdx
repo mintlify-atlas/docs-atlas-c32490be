@@ -1,0 +1,530 @@
+---
+title: Terminal Shell Integration
+description: Open repositories in your preferred terminal shell with GitHub Desktop's shell integration
+---
+
+GitHub Desktop can launch your preferred terminal shell to work with Git repositories from the command line. Shells can be opened from the **Repository** menu or toolbar.
+
+## Requirements
+
+For a shell to be supported by GitHub Desktop, it must meet these criteria:
+
+<Steps>
+  <Step title="Discoverable">
+    GitHub Desktop must be able to detect if the shell is installed on the user's machine.
+  </Step>
+
+  <Step title="Launchable">
+    The shell must be launchable using the operating system's APIs.
+  </Step>
+
+  <Step title="Stable interface">
+    The shell must have stable command-line arguments that don't change between updates.
+  </Step>
+</Steps>
+
+## Supported Shells
+
+### Windows
+
+<CodeGroup>
+```text Built-in Shells
+Command Prompt (cmd)
+PowerShell
+PowerShell Core
+```
+
+```text Third-party Shells
+Git Bash (from Git for Windows)
+Cygwin
+WSL (Windows Subsystem for Linux)
+Windows Terminal
+Hyper
+Alacritty
+Fluent Terminal
+```
+</CodeGroup>
+
+These are defined in the shell enumeration:
+
+```ts app/src/lib/shells/win32.ts
+export enum Shell {
+  Cmd = 'Command Prompt',
+  PowerShell = 'PowerShell',
+  PowerShellCore = 'PowerShell Core',
+  Hyper = 'Hyper',
+  GitBash = 'Git Bash',
+  Cygwin = 'Cygwin',
+  WSL = 'WSL',
+  WindowsTerminal = 'Windows Terminal',
+  Alacritty = 'Alacritty',
+  FluentTerminal = 'Fluent Terminal',
+}
+```
+
+### macOS
+
+Supported terminal applications on macOS:
+
+- **Terminal** (default macOS terminal)
+- **iTerm2**
+- **Hyper**
+- **PowerShell Core**
+- **Kitty**
+- **Alacritty**
+- **Tabby**
+- **WezTerm**
+- **Warp**
+- **Ghostty**
+
+```ts app/src/lib/shells/darwin.ts
+export enum Shell {
+  Terminal = 'Terminal',
+  Hyper = 'Hyper',
+  iTerm2 = 'iTerm2',
+  PowerShellCore = 'PowerShell Core',
+  Kitty = 'Kitty',
+  Alacritty = 'Alacritty',
+  Tabby = 'Tabby',
+  WezTerm = 'WezTerm',
+  Warp = 'Warp',
+  Ghostty = 'Ghostty',
+}
+```
+
+### Linux
+
+Linux users can choose from these terminal emulators:
+
+- **GNOME Terminal**
+- **Ptyxis**
+- **MATE Terminal**
+- **Tilix**
+- **Terminator**
+- **Rxvt Unicode (urxvt)**
+- **Konsole** (KDE)
+- **XTerm**
+- **Terminology**
+- **Ghostty**
+
+```ts app/src/lib/shells/linux.ts
+export enum Shell {
+  Gnome = 'GNOME Terminal',
+  Ptyxis = 'Ptyxis',
+  Mate = 'MATE Terminal',
+  Tilix = 'Tilix',
+  Terminator = 'Terminator',
+  Urxvt = 'URxvt',
+  Konsole = 'Konsole',
+  Xterm = 'XTerm',
+  Terminology = 'Terminology',
+  Ghostty = 'Ghostty',
+}
+```
+
+## Shell Detection
+
+### Windows: Registry and File System
+
+On Windows, shells are detected using registry lookups and file system checks:
+
+```ts app/src/lib/shells/win32.ts
+async function findGitBash(): Promise<string | null> {
+  const registryPath = enumerateValues(
+    HKEY.HKEY_LOCAL_MACHINE,
+    'SOFTWARE\\GitForWindows'
+  )
+
+  if (registryPath.length === 0) {
+    return null
+  }
+
+  const installPathEntry = registryPath.find(e => e.name === 'InstallPath')
+  if (installPathEntry && installPathEntry.type === RegistryValueType.REG_SZ) {
+    const path = Path.join(installPathEntry.data, 'git-bash.exe')
+
+    if (await pathExists(path)) {
+      return path
+    }
+  }
+
+  return null
+}
+```
+
+<Note>
+Built-in shells like Command Prompt and PowerShell are always available on Windows and don't require detection.
+</Note>
+
+### macOS: Bundle Identifiers
+
+On macOS, shells are discovered using their application bundle identifiers:
+
+```ts app/src/lib/shells/darwin.ts
+function getBundleIDs(shell: Shell): ReadonlyArray<string> {
+  switch (shell) {
+    case Shell.Terminal:
+      return ['com.apple.Terminal']
+    case Shell.iTerm2:
+      return ['com.googlecode.iterm2']
+    case Shell.Hyper:
+      return ['co.zeit.hyper']
+    case Shell.Kitty:
+      return ['net.kovidgoyal.kitty']
+    case Shell.Alacritty:
+      return ['org.alacritty', 'io.alacritty']
+    case Shell.WezTerm:
+      return ['com.github.wez.wezterm']
+    case Shell.Ghostty:
+      return ['com.mitchellh.ghostty']
+  }
+}
+```
+
+The detection process:
+
+```ts app/src/lib/shells/darwin.ts
+async function getShellInfo(
+  shell: Shell
+): Promise<{ path: string; bundleID: string } | null> {
+  const bundleIds = getBundleIDs(shell)
+  for (const id of bundleIds) {
+    try {
+      const path = await appPath(id)
+      return { path, bundleID: id }
+    } catch (error) {
+      log.debug(
+        `Unable to locate ${shell} installation with bundle id ${id}`,
+        error
+      )
+    }
+  }
+  return null
+}
+```
+
+### Linux: Executable Paths
+
+Linux shells are located by checking known executable paths:
+
+```ts app/src/lib/shells/linux.ts
+function getShellPath(shell: Shell): Promise<string | null> {
+  switch (shell) {
+    case Shell.Gnome:
+      return getPathIfAvailable('/usr/bin/gnome-terminal')
+    case Shell.Mate:
+      return getPathIfAvailable('/usr/bin/mate-terminal')
+    case Shell.Tilix:
+      return getPathIfAvailable('/usr/bin/tilix')
+    case Shell.Terminator:
+      return getPathIfAvailable('/usr/bin/terminator')
+    case Shell.Urxvt:
+      return getPathIfAvailable('/usr/bin/urxvt')
+    case Shell.Konsole:
+      return getPathIfAvailable('/usr/bin/konsole')
+    case Shell.Xterm:
+      return getPathIfAvailable('/usr/bin/xterm')
+  }
+}
+```
+
+## Launching Shells
+
+### Windows Launch Arguments
+
+Each shell requires specific command-line arguments to open in the repository directory:
+
+```ts app/src/lib/shells/win32.ts
+export function launch(
+  foundShell: FoundShell<Shell>,
+  path: string
+): ChildProcess {
+  const shell = foundShell.shell
+  switch (shell) {
+    case Shell.GitBash:
+      const gitBashPath = `"${foundShell.path}"`
+      return spawn(gitBashPath, [`--cd="${path}"`], {
+        shell: true,
+        cwd: path,
+      })
+
+    case Shell.PowerShell:
+    case Shell.PowerShellCore:
+      return spawn(foundShell.path, ['-NoExit', '-Command', `cd "${path}"`], {
+        cwd: path,
+      })
+
+    case Shell.Cmd:
+      return spawn('cmd.exe', ['/K', `cd /D "${path}"`])
+
+    case Shell.Hyper:
+      return spawn(foundShell.path, [`"${path}"`], {
+        cwd: path,
+      })
+
+    case Shell.WindowsTerminal:
+      return spawn('wt.exe', ['-d', `"${path}"`])
+
+    case Shell.Alacritty:
+      return spawn(foundShell.path, ['--working-directory', path])
+  }
+}
+```
+
+<Tip>
+Path arguments are properly quoted to handle directories with spaces.
+</Tip>
+
+### macOS Launch with `open`
+
+On macOS, shells are launched using the `open` command with the bundle identifier:
+
+```ts app/src/lib/shells/darwin.ts
+export function launch(
+  foundShell: FoundShell<Shell>,
+  path: string
+): ChildProcess {
+  return spawn('open', ['-b', foundShell.bundleID, path])
+}
+```
+
+This approach allows macOS to:
+- Use the default application for that bundle ID
+- Handle application launching properly
+- Support multiple versions of the same shell
+
+### Linux Launch Arguments
+
+Linux shells use various working directory flags:
+
+```ts app/src/lib/shells/linux.ts
+export function launch(
+  foundShell: FoundShell<Shell>,
+  path: string
+): ChildProcess {
+  const shell = foundShell.shell
+  switch (shell) {
+    case Shell.Gnome:
+    case Shell.Mate:
+    case Shell.Tilix:
+    case Shell.Terminator:
+      return spawn(foundShell.path, ['--working-directory', path])
+
+    case Shell.Urxvt:
+      return spawn(foundShell.path, ['-cd', path])
+
+    case Shell.Konsole:
+      return spawn(foundShell.path, ['--workdir', path])
+
+    case Shell.Xterm:
+      return spawn(foundShell.path, ['-e', '/bin/bash'], { cwd: path })
+
+    case Shell.Terminology:
+      return spawn(foundShell.path, ['-d', path])
+  }
+}
+```
+
+## Getting Available Shells
+
+GitHub Desktop detects all installed shells at startup:
+
+<CodeGroup>
+```ts Windows
+export async function getAvailableShells(): Promise<
+  ReadonlyArray<FoundShell<Shell>>
+> {
+  const shells: Array<FoundShell<Shell>> = [
+    { shell: Shell.Cmd, path: 'cmd.exe' },
+  ]
+
+  const powerShellPath = await findPowerShell()
+  if (powerShellPath) {
+    shells.push({ shell: Shell.PowerShell, path: powerShellPath })
+  }
+
+  const gitBashPath = await findGitBash()
+  if (gitBashPath) {
+    shells.push({ shell: Shell.GitBash, path: gitBashPath })
+  }
+
+  const windowsTerminalPath = await findWindowsTerminal()
+  if (windowsTerminalPath) {
+    shells.push({ shell: Shell.WindowsTerminal, path: windowsTerminalPath })
+  }
+
+  return shells
+}
+```
+
+```ts macOS
+export async function getAvailableShells(): Promise<
+  ReadonlyArray<FoundShell<Shell>>
+> {
+  const [
+    terminalInfo,
+    hyperInfo,
+    iTermInfo,
+    kittyInfo,
+    alacrittyInfo,
+    warpInfo,
+    ghosttyInfo,
+  ] = await Promise.all([
+    getShellInfo(Shell.Terminal),
+    getShellInfo(Shell.Hyper),
+    getShellInfo(Shell.iTerm2),
+    getShellInfo(Shell.Kitty),
+    getShellInfo(Shell.Alacritty),
+    getShellInfo(Shell.Warp),
+    getShellInfo(Shell.Ghostty),
+  ])
+
+  const shells: Array<FoundShell<Shell>> = []
+
+  if (terminalInfo) {
+    shells.push({ shell: Shell.Terminal, ...terminalInfo })
+  }
+  if (iTermInfo) {
+    shells.push({ shell: Shell.iTerm2, ...iTermInfo })
+  }
+  // ... add other shells
+
+  return shells
+}
+```
+
+```ts Linux
+export async function getAvailableShells(): Promise<
+  ReadonlyArray<FoundShell<Shell>>
+> {
+  const [
+    gnomeTerminalPath,
+    mateTerminalPath,
+    tilixPath,
+    terminatorPath,
+    konsolePath,
+    xtermPath,
+  ] = await Promise.all([
+    getShellPath(Shell.Gnome),
+    getShellPath(Shell.Mate),
+    getShellPath(Shell.Tilix),
+    getShellPath(Shell.Terminator),
+    getShellPath(Shell.Konsole),
+    getShellPath(Shell.Xterm),
+  ])
+
+  const shells: Array<FoundShell<Shell>> = []
+
+  if (gnomeTerminalPath) {
+    shells.push({ shell: Shell.Gnome, path: gnomeTerminalPath })
+  }
+  // ... add other shells
+
+  return shells
+}
+```
+</CodeGroup>
+
+## Custom Shell Integration
+
+GitHub Desktop supports custom shell configurations:
+
+```ts app/src/lib/shells/darwin.ts
+interface ICustomIntegration {
+  path: string           // Path to shell executable
+  arguments: string      // Launch arguments
+  bundleID?: string      // macOS bundle ID (optional)
+}
+```
+
+Custom integrations use argument expansion:
+
+```ts
+const argv = parseCustomIntegrationArguments(customShell.arguments)
+const args = expandTargetPathArgument(argv, repositoryPath)
+return spawnCustomIntegration(customShell.path, args)
+```
+
+## Shell Parsing
+
+The `parse()` function converts shell names to enum values:
+
+<CodeGroup>
+```ts Windows
+export function parse(label: string): Shell {
+  if (label === Shell.Cmd) return Shell.Cmd
+  if (label === Shell.PowerShell) return Shell.PowerShell
+  if (label === Shell.GitBash) return Shell.GitBash
+  // ...
+  return Default // Falls back to Command Prompt
+}
+```
+
+```ts macOS
+export function parse(label: string): Shell {
+  return parseEnumValue(Shell, label) ?? Default
+}
+
+export const Default = Shell.Terminal
+```
+
+```ts Linux
+export function parse(label: string): Shell {
+  return parseEnumValue(Shell, label) ?? Default
+}
+
+export const Default = Shell.Gnome
+```
+</CodeGroup>
+
+## Adding a New Shell
+
+To add support for a new shell:
+
+<Steps>
+  <Step title="Add enum entry">
+    Add a new entry to the `Shell` enum in the appropriate platform file with a user-friendly name.
+  </Step>
+
+  <Step title="Implement detection">
+    **Windows**: Add a finder function that checks registry or file system:
+    ```ts
+    async function findMyShell(): Promise<string | null> {
+      // Check registry or known paths
+      return shellPath
+    }
+    ```
+
+    **macOS**: Add bundle ID to `getBundleIDs()`:
+    ```ts
+    case Shell.MyShell:
+      return ['com.example.myshell']
+    ```
+
+    **Linux**: Add path to `getShellPath()`:
+    ```ts
+    case Shell.MyShell:
+      return getPathIfAvailable('/usr/bin/myshell')
+    ```
+  </Step>
+
+  <Step title="Update getAvailableShells()">
+    Add your shell to the detection logic in `getAvailableShells()`.
+  </Step>
+
+  <Step title="Implement launch logic">
+    Add launch arguments to the `launch()` function:
+    ```ts
+    case Shell.MyShell:
+      return spawn(foundShell.path, ['--directory', path])
+    ```
+  </Step>
+
+  <Step title="Update parse function">
+    Add parsing logic if needed (usually automatic with `parseEnumValue`).
+  </Step>
+</Steps>
+
+<Card title="Contributing" icon="terminal">
+  Want to add support for your favorite shell? Check out the [shell integration technical documentation](https://github.com/desktop/desktop/blob/development/docs/technical/shell-integration.md) for detailed contribution guidelines.
+</Card>
